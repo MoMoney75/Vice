@@ -18,20 +18,21 @@ const firstPick = {
   bookCount: 4,
 };
 
-test("locks the strongest three-book spread or total for the week", () => {
+test("locks the strongest two-book spread or total for the week", () => {
   const resolved = resolvePickOfWeekLock(
     {
       pickCandidates: [
-        { ...firstPick, fairProbability: 0.54 },
+        { ...firstPick, fairProbability: 0.54, bookCount: 2 },
         { ...firstPick, eventId: "game-2", selection: "Over 44.5", marketKey: "totals", fairProbability: 0.58, bookCount: 2 },
-        { ...firstPick, eventId: "game-3", selection: "Under 44.5", marketKey: "totals", fairProbability: 0.56, bookCount: 3 },
+        { ...firstPick, eventId: "game-3", selection: "Under 44.5", marketKey: "totals", fairProbability: 0.56, bookCount: 2 },
+        { ...firstPick, eventId: "game-4", selection: "Home -3.5", fairProbability: 0.99, bookCount: 1 },
       ],
     },
     null,
     "2026-10-17T12:00:00.000Z",
   );
 
-  assert.equal(resolved.candidate.eventId, "game-3");
+  assert.equal(resolved.candidate.eventId, "game-2");
   assert.equal(resolved.selectedAt, "2026-10-17T12:00:00.000Z");
   assert.equal(resolved.priceUpdated, true);
 });
@@ -61,7 +62,7 @@ test("keeps the locked selection while refreshing its confirmed price", () => {
   assert.equal(resolved.priceUpdated, true);
 });
 
-test("retains the saved selection and last confirmed price when three-book odds disappear", () => {
+test("retains the saved selection and last confirmed price when two-book odds disappear", () => {
   const savedLock = {
     candidate: firstPick,
     selectedAt: "2026-10-17T12:00:00.000Z",
@@ -70,7 +71,7 @@ test("retains the saved selection and last confirmed price when three-book odds 
   const resolved = resolvePickOfWeekLock(
     {
       pickCandidates: [
-        { ...firstPick, bookCount: 2, bestPrice: 115 },
+        { ...firstPick, bookCount: 1, bestPrice: 115 },
         { ...firstPick, eventId: "new-favorite", fairProbability: 0.7 },
       ],
     },

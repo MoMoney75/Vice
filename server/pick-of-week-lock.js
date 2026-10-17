@@ -20,7 +20,7 @@ export function resolvePickOfWeekLock(analysis, savedLock, selectedAt = new Date
     }
     const currentCandidate = (analysis.pickCandidates ?? []).find(
       (candidate) =>
-        candidate.bookCount >= 3 &&
+        candidate.bookCount >= 2 &&
         sameSelection(candidate, savedLock.candidate),
     );
     return {

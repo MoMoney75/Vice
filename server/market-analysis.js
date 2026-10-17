@@ -29,7 +29,7 @@ export function selectPickOfWeekCandidate(analysis) {
     .filter((item) =>
       item &&
       (item.marketKey === "spreads" || item.marketKey === "totals") &&
-      item.bookCount >= 3 &&
+      item.bookCount >= 2 &&
       Number.isFinite(item.fairProbability),
     )
     .sort((a, b) =>
@@ -123,7 +123,7 @@ export function buildPickOfWeek({
     news: evidence.news,
     injuryReportUpdatedAt: injuryReport?.updatedAt ?? null,
     basis:
-      "Selected once per NFL week from spread and total lines priced by at least three sportsbooks. The highest no-vig market chance ranks first; ties favor broader book coverage, then a stable game and market order. The selection stays fixed for the week. Prices refresh only while the same line remains confirmed by three books. Form, injuries, and news are research context, not a validated prediction model or a guarantee.",
+      "Selected once per NFL week from spread and total lines priced by at least two sportsbooks. The highest no-vig market chance ranks first; ties favor broader book coverage, then a stable game and market order. The selection stays fixed for the week. Prices refresh only while the same line remains confirmed by two or more books. Form, injuries, and news are research context, not a validated prediction model or a guarantee.",
   };
 }
 

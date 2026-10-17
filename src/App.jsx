@@ -517,8 +517,8 @@ function PickOfWeekCard({ pickOfWeek }) {
         </span>
         <span>
           {pickOfWeek.priceUpdated
-            ? "Same line confirmed by 3+ books"
-            : "Showing last confirmed price; 3+ book pricing is unavailable"}
+            ? "Same line confirmed by 2+ books"
+            : "Showing last confirmed price; 2+ book pricing is unavailable"}
         </span>
       </div>
       <div className="pick-week-selection">
@@ -547,7 +547,7 @@ function PickOfWeekCard({ pickOfWeek }) {
         <ResearchNews items={pickOfWeek.news} />
       </div>
       <div className="pick-week-footnote">
-        <strong>METHOD</strong> Highest no-vig spread/total chance with three or more books; selection stays locked for the week. Injury feed updated{" "}
+        <strong>METHOD</strong> Highest no-vig spread/total chance with two or more books; selection stays locked for the week. Injury feed updated{" "}
         {pickOfWeek.injuryReportUpdatedAt
           ? formatDate(pickOfWeek.injuryReportUpdatedAt)
           : "time unavailable"}.
@@ -784,9 +784,9 @@ export default function App() {
   return (
     <main className="app-shell" data-view={activeView}>
       <aside className="sidebar">
-        <a className="brand" href="/" aria-label="Vice home">
+        <a className="brand" href="/" aria-label="Vise home">
           <span className="brand-mark">V</span>
-          <span className="brand-name">VICE<span>.</span></span>
+          <span className="brand-name">VISE<span>.</span></span>
         </a>
         <div className="sidebar-label">THE DESK</div>
         <nav className="desk-sidebar-nav" aria-label="Research views">
@@ -850,9 +850,9 @@ export default function App() {
 
       <section className="workspace">
         <header className="topbar">
-          <a className="mobile-brand" href="/" aria-label="Vice home">
+          <a className="mobile-brand" href="/" aria-label="Vise home">
             <span className="brand-mark">V</span>
-            <span className="brand-name">VICE<span>.</span></span>
+            <span className="brand-name">VISE<span>.</span></span>
           </a>
           <div className="breadcrumb">NFL <span>/</span> {activeLabel.toUpperCase()}</div>
           <div className="topbar-right">
@@ -1319,7 +1319,7 @@ export default function App() {
           </section>}
 
           <footer className="footer">
-            <span className="footer-brand">VICE<span>.</span></span>
+            <span className="footer-brand">VISE<span>.</span></span>
             <span>Independent research tool. Not betting advice.</span>
             <span>Know your limits. 21+ only.</span>
           </footer>

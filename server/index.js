@@ -131,7 +131,7 @@ if (existsSync(cacheFile)) {
       console.log("Odds API key changed; discarding cached odds and quota state while retaining weekly pick locks.");
     }
   } catch (error) {
-    console.error(`Unable to read local Vice cache: ${error.message}`);
+    console.error(`Unable to read local Vise cache: ${error.message}`);
   }
 }
 
@@ -148,7 +148,7 @@ function persistCache() {
     cacheWrite = cacheWrite
       .then(() => writeFile(cacheFile, contents, "utf8"))
       .catch((error) => {
-        console.error(`Unable to persist local Vice cache: ${error.message}`);
+        console.error(`Unable to persist local Vise cache: ${error.message}`);
       });
   }, 100);
   return cacheWrite;
@@ -741,5 +741,5 @@ if (process.env.NODE_ENV === "production") {
 }
 
 app.listen(port, () => {
-  console.log(`Vice API listening on http://localhost:${port}`);
+  console.log(`Vise API listening on http://localhost:${port}`);
 });

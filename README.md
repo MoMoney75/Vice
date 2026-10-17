@@ -1,6 +1,6 @@
-# Vice — NFL Market Desk
+# Vise — NFL Market Desk
 
-Vice is a small NFL research dashboard for comparing live US sportsbook prices and
+Vise is a small NFL research dashboard for comparing live US sportsbook prices and
 reviewing current-season team and player results. It is an informational tool,
 not a betting recommendation service. The dashboard includes spreads, moneylines,
 totals, anytime touchdown markets, and player passing/rushing/receiving props.
@@ -40,12 +40,12 @@ probabilities for different games, and use leg prices from one sportsbook;
 they assume independence and are not guarantees.
 
 Pick of the Week is selected once per NFL week from spread and total lines
-priced by at least three sportsbooks. The highest no-vig market chance ranks
+priced by at least two sportsbooks. The highest no-vig market chance ranks
 first; ties favor broader book coverage, then a stable game and market order.
 The selected matchup and side/line are persisted locally and stay fixed until
 the ESPN week changes, including across API restarts and Odds API key changes.
 The displayed price updates only when the same selection remains confirmed by
-at least three books; otherwise Vice keeps the last confirmed price and labels
+at least two books; otherwise Vise keeps the last confirmed price and labels
 it as such. ESPN season scoring form, recent scorelines, related headlines, and
 the injury report are refreshed as context; they do not change the selection
 or its market-derived probability. This stability strategy prevents the
@@ -55,7 +55,7 @@ team's current-season scoring and points allowed, recent results, and related
 injury/news information. Pick explanations present market context, team form,
 home/away ATS results, injury notes, and news as separate scan-friendly points.
 
-Vice tracks each locked weekly Pick of the Week against the final ESPN score.
+Vise tracks each locked weekly Pick of the Week against the final ESPN score.
 Spread picks are graded against the saved selection-side point; totals are
 graded against the saved over/under line. Wins, losses, pushes, pending picks,
 and week-by-week results are persisted in the local ignored cache file. The
@@ -84,7 +84,7 @@ bookmaker margin, and assume different games are independent. The team-trend
 rank is descriptive context, not a validated scoring or success probability.
 
 Each player-prop event request asks for five markets and costs five market
-credits for the US region. Vice preloads props for upcoming games with odds and
+credits for the US region. Vise preloads props for upcoming games with odds and
 caches each event for six hours; a 14-game slate may therefore use up to 70
 credits each time those event caches expire. Fetching spread, moneyline, and
 total prices costs another three credits each time the game-odds cache refreshes.
@@ -93,7 +93,7 @@ At the configured 15-minute game-odds and six-hour player-prop intervals, a
 280 for props). Actual usage depends on events, available markets, cache state,
 and provider billing. The interface displays estimated player-prop usage. A
 game with fewer than two books at a matching player/line is left off consensus
-picks. Vice checks the available balance before cost-bearing requests and
+picks. Vise checks the available balance before cost-bearing requests and
 pauses sportsbook requests when there are not enough credits.
 
 ## Production build
