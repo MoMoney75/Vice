@@ -101,4 +101,21 @@ pauses sportsbook requests when there are not enough credits.
 Run `npm run build`, then start the API and static frontend together with
 `NODE_ENV=production npm start`.
 
+## Deploy on Render
+
+The repository includes a Render Blueprint in `render.yaml`. It builds the
+frontend, starts the Express server, sets `NODE_ENV=production`, and checks
+`/api/health`. When deploying from this Blueprint, enter `ODDS_API_KEY` in
+Render when prompted; do not commit the key.
+
+For an existing Render Web Service not managed by the Blueprint, set **Build
+Command** to `npm ci --include=dev && npm run build`, **Start Command** to
+`npm start`, and add `NODE_ENV=production` and `ODDS_API_KEY` under the
+service's environment variables. The explicit `--include=dev` ensures build
+tools such as Vite are installed even when `NODE_ENV=production`. The app is
+served at the service root, the board endpoint is `/api/nfl/board`, and
+`/api/health` returns `{ "status": "ok" }` when the server is reachable.
+Adding the Odds API key enables sportsbook odds; it does not determine whether
+the web service itself starts.
+
 Run the market-analysis tests with `npm test`.

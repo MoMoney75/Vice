@@ -23,6 +23,7 @@ import {
   summarizePickOfWeekRecord,
 } from "./pick-of-week-lock.js";
 import {
+  describeOddsQuotaFailure,
   isTransientNetworkFailure,
   shouldRestoreFailure,
 } from "./cache-utils.js";
@@ -404,8 +405,9 @@ app.get("/api/nfl/board", async (_request, response) => {
   const season = currentSeasonYear();
   let oddsQuotaReady = false;
   let oddsQuotaError = false;
+  let oddsQuotaResult;
   if (process.env.ODDS_API_KEY) {
-    const [quotaResult] = await Promise.allSettled([
+    [oddsQuotaResult] = await Promise.allSettled([
       cachedFetch(
         "odds-quota",
         `${ODDS_SPORTS_URL}?apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
@@ -414,8 +416,8 @@ app.get("/api/nfl/board", async (_request, response) => {
       ),
     ]);
     oddsQuotaReady =
-      quotaResult.status === "fulfilled" && Number.isFinite(oddsCreditsRemaining);
-    oddsQuotaError = quotaResult.status === "rejected";
+      oddsQuotaResult.status === "fulfilled" && Number.isFinite(oddsCreditsRemaining);
+    oddsQuotaError = oddsQuotaResult.status === "rejected";
   }
   const [scoreboardResult, oddsResult, injuryResult, statsResult, newsResult] = await Promise.allSettled([
     cachedFetch(`scoreboard-current-${season}`, ESPN_SCOREBOARD),
@@ -434,7 +436,9 @@ app.get("/api/nfl/board", async (_request, response) => {
 
   const errors = [];
   if (oddsQuotaError || (process.env.ODDS_API_KEY && !oddsQuotaReady)) {
-    errors.push("The Odds API balance could not be verified; sportsbook requests are paused to protect the quota.");
+    errors.push(
+      describeOddsQuotaFailure(oddsQuotaResult, process.env.ODDS_API_KEY),
+    );
   } else if (process.env.ODDS_API_KEY && oddsCreditsRemaining < 3) {
     errors.push(`The Odds API balance is ${oddsCreditsRemaining} credits; at least 3 are needed for current game lines.`);
   }
