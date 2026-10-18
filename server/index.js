@@ -595,7 +595,7 @@ app.get("/api/nfl/board", async (_request, response) => {
     }
     const event = odds[index];
     playerPropEvents.push({
-      ...filterToSupportedSportsbooks([result.value])[0],
+      ...result.value,
       id: event.id,
       name: event.name,
       home_team: event.home_team,

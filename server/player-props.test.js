@@ -163,9 +163,19 @@ test("builds player prop picks with market, season, matchup, injury, and news ev
   assert.match(touchdownPick.evidence.summary, /not a player projection/);
 });
 
-test("requires prices from two books and matches current news to team and player", () => {
+test("includes one-book props transparently and matches current news to team and player", () => {
   const oneBook = analyzePlayerProps([propEvent([book("Book A", 110, -110, -110)])]);
-  assert.deepEqual(oneBook, []);
+  assert.equal(oneBook.length, 2);
+  assert.ok(oneBook.some((pick) =>
+    pick.candidate.marketKey === "player_anytime_td" &&
+    pick.candidate.probabilitySource === "single-book implied probability" &&
+    pick.candidate.bookmakerCount === 1,
+  ));
+  assert.ok(oneBook.some((pick) =>
+    pick.candidate.marketKey === "player_pass_yds" &&
+    pick.candidate.probabilitySource === "single-book no-vig probability" &&
+    pick.candidate.bookmakerCount === 1,
+  ));
 
   const news = mapNflNews({
     articles: [{

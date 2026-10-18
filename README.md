@@ -19,10 +19,11 @@ report, event summaries, and NFL news feed. Closing spread lines from ESPN
 event summaries are used to calculate current-season home/away against-the-
 spread (ATS) records; games without a verified closing line are excluded.
 Browse the recent ESPN coverage in the NFL News view. It uses
-[The Odds API](https://the-odds-api.com/) for US bookmaker prices, comparing
-only Hard Rock Bet, DraftKings, FanDuel, and Caesars when each is available for
-the market. Game lines refresh every 15 minutes; player props refresh
-every six hours. The board checks for updated data every 60 seconds, while the
+[The Odds API](https://the-odds-api.com/) for US bookmaker prices. Game lines
+compare Hard Rock Bet, DraftKings, FanDuel, and Caesars when available; player
+props include every US bookmaker returned for the requested market. Game lines
+refresh every 15 minutes; player props refresh every six hours. The board checks
+for updated data every 60 seconds, while the
 odds caches prevent each check from spending additional credits. Schedule and
 results refresh every 60 seconds, and the player-stat, injury, roster, and news
 feeds have their own cache intervals. Odds responses and quota state are
@@ -79,7 +80,9 @@ independent performance model, and player availability and reported news can
 change before kickoff.
 
 Player props are grouped by game kickoff; all game groups start collapsed and
-players within a game are ordered by market-implied chance. The Anytime TD
+players within a game are ordered by market-implied chance. Props available at
+only one book are still shown, but labeled as single-book references rather
+than multi-book consensus. The Anytime TD
 Parlays view suggests two- and three-game combinations at one sportsbook.
 Candidates with known out, doubtful, injured-reserve, or PUP status are
 excluded. Ideas are ranked using the player's offense scoring rate and the
@@ -96,9 +99,10 @@ total prices costs another three credits each time the game-odds cache refreshes
 At the configured 15-minute game-odds and six-hour player-prop intervals, a
 14-game slate could use up to 568 credits in 24 hours (288 for game odds and
 280 for props). Actual usage depends on events, available markets, cache state,
-and provider billing. The interface displays estimated player-prop usage. A
-game with fewer than two books at a matching player/line is left off consensus
-picks. Vise checks the available balance before cost-bearing requests and
+and provider billing. The interface displays estimated player-prop usage.
+Single-book props are shown as references, not consensus; when multiple books
+offer the same player and line, Vise compares them. Vise checks the available
+balance before cost-bearing requests and
 pauses sportsbook requests when there are not enough credits.
 
 ## Production build

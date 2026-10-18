@@ -121,7 +121,7 @@ function makeMarketCandidates(event, marketKey) {
         const yes = sides.get("Yes");
         if (yes) quotes.push({ bookmaker, ...yes });
       }
-      if (new Set(quotes.map((quote) => quote.bookmaker)).size < 2) continue;
+      if (!quotes.length) continue;
       const probability =
         quotes.reduce((sum, quote) => sum + quote.impliedProbability, 0) / quotes.length;
       candidates.push({
@@ -137,7 +137,9 @@ function makeMarketCandidates(event, marketKey) {
         selection: "Anytime TD scorer",
         line: null,
         fairProbability: probability,
-        probabilitySource: "raw implied probability",
+        probabilitySource: quotes.length > 1
+          ? "raw implied probability"
+          : "single-book implied probability",
         bookmakerQuotes: quotes,
       });
       continue;
@@ -157,7 +159,7 @@ function makeMarketCandidates(event, marketKey) {
         underProbability: under.impliedProbability / total,
       });
     }
-    if (new Set(pairedQuotes.map((quote) => quote.bookmaker)).size < 2) continue;
+    if (!pairedQuotes.length) continue;
 
     for (const side of ["Over", "Under"]) {
       const probabilityKey = `${side.toLowerCase()}Probability`;
@@ -177,7 +179,9 @@ function makeMarketCandidates(event, marketKey) {
         fairProbability:
           pairedQuotes.reduce((sum, quote) => sum + quote[probabilityKey], 0) /
           pairedQuotes.length,
-        probabilitySource: "no-vig consensus",
+        probabilitySource: pairedQuotes.length > 1
+          ? "no-vig consensus"
+          : "single-book no-vig probability",
         bookmakerQuotes: pairedQuotes.map((quote) => ({
           bookmaker: quote.bookmaker,
           price: quote[priceKey],
@@ -285,7 +289,7 @@ function makeEvidence(
   return {
     candidate: candidateWithTeam,
     evidence: {
-      market: `${candidate.bookmakerCount} sportsbooks compared; ${candidate.probabilitySource} is ${Math.round(candidate.fairProbability * 1000) / 10}%. Best listed price: ${candidate.bestPrice > 0 ? "+" : ""}${candidate.bestPrice} at ${candidate.bestBookmaker}.`,
+      market: `${candidate.bookmakerCount} sportsbook${candidate.bookmakerCount === 1 ? "" : "s"} ${candidate.bookmakerCount === 1 ? "listed" : "compared"}; ${candidate.probabilitySource} is ${Math.round(candidate.fairProbability * 1000) / 10}%. Best listed price: ${candidate.bestPrice > 0 ? "+" : ""}${candidate.bestPrice} at ${candidate.bestBookmaker}.`,
       seasonStats: stats,
       seasonStatsAvailable: Boolean(stats.length),
       opponent: opponentName

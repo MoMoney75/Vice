@@ -307,10 +307,16 @@ function PlayerPropCard({ pick }) {
       </div>
       <div className="prop-card-selection">
         {candidate.selection}
-        {` · ${percentage(candidate.fairProbability)} ${candidate.probabilitySource === "raw implied probability" ? "implied chance (not de-vigged)" : "no-vig market chance"}`}
+        {` · ${percentage(candidate.fairProbability)} ${
+          candidate.probabilitySource.includes("implied")
+            ? "implied chance (not de-vigged)"
+            : "no-vig market chance"
+        }`}
       </div>
       <div className="prop-book">
-        {candidate.bookmakerCount} books compared · Best price at {candidate.bestBookmaker}
+        {candidate.bookmakerCount === 1
+          ? `One-book reference · Price at ${candidate.bestBookmaker}`
+          : `${candidate.bookmakerCount} books compared · Best price at ${candidate.bestBookmaker}`}
       </div>
       <div className="prop-reasoning">
         <strong>THE RESEARCH</strong>
@@ -912,13 +918,13 @@ export default function App() {
                   </h2>
                 </div>
                 <span className="trend-caption">
-                  Hard Rock Bet · DraftKings · FanDuel · Caesars (where available) · cached 6h
+                  US books with available markets · cached 6h
                 </span>
               </div>
               <div className="analysis-disclaimer">
                 <CircleHelp size={14} />
                 <span>
-                  Prices are compared across Hard Rock Bet, DraftKings, FanDuel, and Caesars where offered. Research includes ESPN player totals, team scoring/defense, closing-line home/away ATS records, injuries, and related news.
+                  Player markets use available US sportsbook prices. Where only one book lists a prop, it is shown as a single-book reference rather than a consensus. Research includes ESPN player totals, team scoring/defense, closing-line home/away ATS records, injuries, and related news.
                 </span>
               </div>
               <div className="prop-market-tabs" role="tablist" aria-label="Player prop market">
@@ -988,8 +994,8 @@ export default function App() {
                   {!loading && filteredPlayerProps.length === 0 && (
                   <div className="empty-state">
                     <Sparkles size={22} />
-                    <strong>No consensus props available for this market</strong>
-                    <span>Sportsbooks may not have posted this market yet, or fewer than two books have matching prices.</span>
+                    <strong>No player props available for this market</strong>
+                    <span>Sportsbooks may not have posted this market for the upcoming games yet.</span>
                   </div>
                   )}
                 </div>
