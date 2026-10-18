@@ -627,6 +627,7 @@ button { color: inherit; }
 
 @media (max-width: 600px) {
   body { padding-bottom: calc(76px + env(safe-area-inset-bottom)); }
+  .workspace { margin-left: 0; }
   .topbar { height: 60px; min-height: 60px; padding: 0 16px; }
   .mobile-brand { gap: 10px; }
   .mobile-brand .brand-mark { width: 34px; height: 34px; font-size: 20px; }
