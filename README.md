@@ -80,9 +80,11 @@ independent performance model, and player availability and reported news can
 change before kickoff.
 
 Player props are grouped by game kickoff; all game groups start collapsed and
-players within a game are ordered by market-implied chance. Props available at
-only one book are still shown, but labeled as single-book references rather
-than multi-book consensus. The Anytime TD
+players within a game follow ESPN's offensive depth chart for the selected
+market, with unavailable depth-chart entries following by market-implied
+chance. Each listed player shows their depth-chart slot when available. Props
+available at only one book are still shown, but labeled as single-book
+references rather than multi-book consensus. The Anytime TD
 Parlays view suggests two- and three-game combinations at one sportsbook.
 Candidates with known out, doubtful, injured-reserve, or PUP status are
 excluded. Ideas are ranked using the player's offense scoring rate and the

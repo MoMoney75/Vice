@@ -32,8 +32,43 @@ const STAT_LABELS = {
   receivingTouchdowns: "Receiving TDs",
 };
 
+const DEPTH_CHART_POSITION_ORDER = {
+  "player_anytime_td": ["rb", "fb", "wr1", "wr2", "wr3", "te", "qb"],
+  "player_pass_yds": ["qb", "rb", "fb", "wr1", "wr2", "wr3", "te"],
+  "player_rush_yds": ["rb", "qb", "fb", "wr1", "wr2", "wr3", "te"],
+  "player_receptions": ["wr1", "wr2", "wr3", "te", "rb", "fb", "qb"],
+  "player_reception_yds": ["wr1", "wr2", "wr3", "te", "rb", "fb", "qb"],
+};
+const DEPTH_CHART_POSITIONS = ["qb", "rb", "fb", "wr1", "wr2", "wr3", "te"];
+
 function canonical(value) {
   return value?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+export function buildPlayerDepthChartLookup(depthChart, teamName) {
+  const formation = depthChart?.depthchart?.find(
+    (chart) => chart.positions?.qb && chart.positions?.rb,
+  );
+  const players = new Map();
+  for (const position of DEPTH_CHART_POSITIONS) {
+    for (const [depthIndex, athlete] of (formation?.positions?.[position]?.athletes ?? []).entries()) {
+      const playerKey = canonical(athlete.displayName);
+      if (!playerKey || players.has(playerKey)) continue;
+      players.set(playerKey, {
+        team: teamName,
+        depthChartPosition: position.toUpperCase(),
+        depthChartRank: depthIndex + 1,
+      });
+    }
+  }
+  return players;
+}
+
+function depthChartOrder(candidate, roster) {
+  if (!roster?.depthChartPosition || !Number.isFinite(roster.depthChartRank)) return null;
+  const position = roster.depthChartPosition.toLowerCase();
+  const positionRank = DEPTH_CHART_POSITION_ORDER[candidate.marketKey]?.indexOf(position) ?? -1;
+  return positionRank < 0 ? null : positionRank * 100 + roster.depthChartRank;
 }
 
 function impliedProbability(price) {
@@ -220,6 +255,9 @@ function makeEvidence(
     ...candidate,
     playerTeam,
     playerPosition: roster?.position ?? null,
+    depthChartPosition: roster?.depthChartPosition ?? null,
+    depthChartRank: roster?.depthChartRank ?? null,
+    depthChartOrder: depthChartOrder(candidate, roster),
   };
   const homeKey = canonical(candidate.homeTeam);
   const awayKey = canonical(candidate.awayTeam);

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   analyzePlayerProps,
+  buildPlayerDepthChartLookup,
   buildAnytimeTouchdownParlays,
 } from "./player-props.js";
 import { findRelevantNews, mapNflNews } from "./nfl-news.js";
@@ -206,6 +207,51 @@ test("uses ESPN rosters to identify players missing from leaderboard stats", () 
   assert.equal(passingPick.candidate.playerTeam, "Seattle Seahawks");
   assert.equal(passingPick.candidate.playerPosition, "QB");
   assert.equal(passingPick.evidence.opponent.team, "Denver Broncos");
+});
+
+test("maps ESPN offensive depth-chart slots and depth order for props", () => {
+  const depthChart = buildPlayerDepthChartLookup({
+    depthchart: [{
+      name: "3WR 1TE",
+      positions: {
+        qb: { athletes: [{ displayName: "Sam Darnold" }, { displayName: "Drew Lock" }] },
+        rb: { athletes: [{ displayName: "Kenneth Walker III" }, { displayName: "Zach Charbonnet" }] },
+        wr1: { athletes: [{ displayName: "Jaxon Smith-Njigba" }] },
+        wr2: { athletes: [{ displayName: "Rashid Shaheed" }] },
+        wr3: { athletes: [{ displayName: "Cooper Kupp" }] },
+        te: { athletes: [{ displayName: "AJ Barner" }] },
+      },
+    }],
+  }, "Seattle Seahawks");
+
+  assert.deepEqual(depthChart.get("samdarnold"), {
+    team: "Seattle Seahawks",
+    depthChartPosition: "QB",
+    depthChartRank: 1,
+  });
+  assert.deepEqual(depthChart.get("drewlock"), {
+    team: "Seattle Seahawks",
+    depthChartPosition: "QB",
+    depthChartRank: 2,
+  });
+  assert.equal(depthChart.get("jaxonsmithnjigba").depthChartPosition, "WR1");
+  assert.equal(depthChart.has("not on depth chart"), false);
+
+  const picks = analyzePlayerProps(
+    [propEvent([
+      book("Book A", 110, -110, -110),
+      book("Book B", 125, -105, -115),
+    ])],
+    { playerRosters: depthChart },
+  );
+  assert.equal(
+    picks.find((pick) => pick.candidate.player === "Sam Darnold").candidate.depthChartOrder,
+    1,
+  );
+  assert.equal(
+    picks.find((pick) => pick.candidate.player === "Jaxon Smith-Njigba").candidate.depthChartOrder,
+    201,
+  );
 });
 
 test("builds two- and three-leg anytime-TD parlays ranked with current offense and opponent defense", () => {

@@ -298,6 +298,11 @@ function PlayerPropCard({ pick }) {
       <div className="prop-card-pick">
         <div>
           <strong>{candidate.player}</strong>
+          {candidate.depthChartPosition && (
+            <span>
+              Depth chart: {candidate.depthChartPosition} #{candidate.depthChartRank}
+            </span>
+          )}
           <span>
             {candidate.playerTeam ? `${candidate.playerTeam} · ` : ""}
             {candidate.awayTeam} @ {candidate.homeTeam}
@@ -775,6 +780,8 @@ export default function App() {
         event: picks[0].candidate,
         picks: picks.sort(
           (a, b) =>
+            (a.candidate.depthChartOrder ?? Number.MAX_SAFE_INTEGER) -
+              (b.candidate.depthChartOrder ?? Number.MAX_SAFE_INTEGER) ||
             b.candidate.fairProbability - a.candidate.fairProbability ||
             b.candidate.expectedValue - a.candidate.expectedValue,
         ),

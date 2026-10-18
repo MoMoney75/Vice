@@ -11,6 +11,7 @@ import {
 } from "./market-analysis.js";
 import {
   analyzePlayerProps,
+  buildPlayerDepthChartLookup,
   buildAnytimeTouchdownParlays,
   PROP_MARKETS,
 } from "./player-props.js";
@@ -614,18 +615,30 @@ app.get("/api/nfl/board", async (_request, response) => {
       if (team?.id) rosterTeams.set(team.id, team.name);
     }
   }
-  const rosterResults = playerPropEvents.length
-    ? await Promise.allSettled(
-        [...rosterTeams].map(([teamId]) =>
-          cachedFetch(
-            `roster-${teamId}`,
-            `${ESPN_TEAM_URL}/${encodeURIComponent(teamId)}?enable=roster`,
-            {},
-            ROSTER_CACHE_TTL_MS,
+  const [rosterResults, depthChartResults] = playerPropEvents.length
+    ? await Promise.all([
+        Promise.allSettled(
+          [...rosterTeams].map(([teamId]) =>
+            cachedFetch(
+              `roster-${teamId}`,
+              `${ESPN_TEAM_URL}/${encodeURIComponent(teamId)}?enable=roster`,
+              {},
+              ROSTER_CACHE_TTL_MS,
+            ),
           ),
         ),
-      )
-    : [];
+        Promise.allSettled(
+          [...rosterTeams].map(([teamId]) =>
+            cachedFetch(
+              `depth-chart-${teamId}`,
+              `${ESPN_TEAM_URL}/${encodeURIComponent(teamId)}/depthcharts`,
+              {},
+              ROSTER_CACHE_TTL_MS,
+            ),
+          ),
+        ),
+      ])
+    : [[], []];
   const playerRosters = new Map();
   let failedRosters = 0;
   rosterResults.forEach((result, index) => {
@@ -649,6 +662,31 @@ app.get("/api/nfl/board", async (_request, response) => {
   });
   if (failedRosters) {
     errors.push(`ESPN player roster details are unavailable for ${failedRosters} upcoming team${failedRosters === 1 ? "" : "s"}.`);
+  }
+  let failedDepthCharts = 0;
+  depthChartResults.forEach((result, index) => {
+    if (result.status === "rejected") {
+      failedDepthCharts += 1;
+      return;
+    }
+    const [teamId, teamName] = [...rosterTeams][index];
+    const depthChartPlayers = buildPlayerDepthChartLookup(
+      result.value,
+      rosterTeams.get(teamId) ?? teamName,
+    );
+    if (!depthChartPlayers.size) {
+      failedDepthCharts += 1;
+      return;
+    }
+    for (const [playerKey, depth] of depthChartPlayers) {
+      playerRosters.set(playerKey, {
+        ...playerRosters.get(playerKey),
+        ...depth,
+      });
+    }
+  });
+  if (failedDepthCharts) {
+    errors.push(`ESPN depth chart ordering is unavailable for ${failedDepthCharts} upcoming team${failedDepthCharts === 1 ? "" : "s"}.`);
   }
   const playerProps = analyzePlayerProps(playerPropEvents, {
     statistics: playerStatistics,
