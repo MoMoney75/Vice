@@ -103,6 +103,28 @@ test("builds player prop picks with market, season, matchup, injury, and news ev
     {
       statistics,
       trends,
+      defensiveStatsByTeam: new Map([
+        ["Denver Broncos", {
+          player_pass_yds: {
+            rank: 8,
+            teamsRanked: 32,
+            games: 5,
+            stats: [
+              { label: "Passing yards", total: 1100, games: 5, perGame: 220 },
+              { label: "Passing TDs", total: 7, games: 5, perGame: 1.4 },
+            ],
+          },
+          player_anytime_td: {
+            rank: 12,
+            teamsRanked: 32,
+            games: 5,
+            stats: [
+              { label: "Rushing TDs", total: 3, games: 5, perGame: 0.6 },
+              { label: "Receiving TDs", total: 5, games: 5, perGame: 1 },
+            ],
+          },
+        }],
+      ]),
       injuryReport: {
         updatedAt: "2026-10-15T10:00:00Z",
         playerStatuses: {
@@ -129,12 +151,15 @@ test("builds player prop picks with market, season, matchup, injury, and news ev
   assert.equal(passingPick.evidence.seasonStats[0].value, 1175);
   assert.equal(passingPick.evidence.offense.record, "3-2");
   assert.equal(passingPick.evidence.opponent.team, "Denver Broncos");
+  assert.equal(passingPick.evidence.opponentPropStats.rank, 8);
+  assert.match(passingPick.evidence.summary, /220\.0 per game/);
   assert.match(passingPick.evidence.summary, /points per game/);
   assert.equal(passingPick.evidence.news[0].url, "https://www.espn.com/nfl/story/1");
 
   assert.ok(touchdownPick);
   assert.equal(touchdownPick.candidate.probabilitySource, "raw implied probability");
   assert.equal(touchdownPick.evidence.injury.status, "Questionable");
+  assert.equal(touchdownPick.evidence.opponentPropStats.stats[0].total, 3);
   assert.match(touchdownPick.evidence.summary, /not a player projection/);
 });
 
@@ -220,6 +245,17 @@ test("builds two- and three-leg anytime-TD parlays ranked with current offense a
       away_team: "Miami Dolphins",
     }, "Player Three"),
   ];
+  const defenseStats = {
+    player_anytime_td: {
+      rank: 7,
+      teamsRanked: 32,
+      games: 5,
+      stats: [
+        { label: "Rushing TDs", total: 3, games: 5, perGame: 0.6 },
+        { label: "Receiving TDs", total: 4, games: 5, perGame: 0.8 },
+      ],
+    },
+  };
   const picks = analyzePlayerProps(games, {
     trends: [
       { name: "Seattle Seahawks", wins: 4, losses: 1, ties: 0, pointsFor: 150, pointsAgainst: 100 },
@@ -233,6 +269,11 @@ test("builds two- and three-leg anytime-TD parlays ranked with current offense a
       ["playerone", { team: "Seattle Seahawks", position: "WR" }],
       ["playertwo", { team: "Philadelphia Eagles", position: "WR" }],
       ["playerthree", { team: "Buffalo Bills", position: "WR" }],
+    ]),
+    defensiveStatsByTeam: new Map([
+      ["Denver Broncos", defenseStats],
+      ["Carolina Panthers", defenseStats],
+      ["Miami Dolphins", defenseStats],
     ]),
   });
   const parlays = buildAnytimeTouchdownParlays(picks, {
@@ -252,6 +293,7 @@ test("builds two- and three-leg anytime-TD parlays ranked with current offense a
     assert.equal(new Set(parlay.legs.map((leg) => leg.eventId)).size, parlay.legCount);
     assert.ok(parlay.legs.every((leg) => Number.isFinite(leg.pointsPerGame)));
     assert.ok(parlay.legs.every((leg) => Number.isFinite(leg.opponentPointsAllowedPerGame)));
+    assert.ok(parlay.legs.every((leg) => leg.opponentPropStats?.rank === 7));
     assert.ok(parlay.legs.every((leg) => leg.marketPrice !== null));
     assert.ok(parlay.estimatedProbability > 0 && parlay.estimatedProbability < 1);
   }

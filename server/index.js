@@ -16,6 +16,7 @@ import {
 } from "./player-props.js";
 import { mapNflNews } from "./nfl-news.js";
 import { buildAgainstTheSpreadRecords } from "./against-the-spread.js";
+import { buildDefensivePropStats } from "./defensive-prop-stats.js";
 import { filterToSupportedSportsbooks } from "./sportsbook-filter.js";
 import {
   resolvePickOfWeekLock,
@@ -518,6 +519,10 @@ app.get("/api/nfl/board", async (_request, response) => {
     }
   });
   const atsRecords = buildAgainstTheSpreadRecords(completedSeasonGames, atsSummaries);
+  const defensivePropStats = buildDefensivePropStats(
+    completedSeasonGames,
+    atsSummaries,
+  );
   const atsGamesAvailable = Math.round(
     [...atsRecords.values()].reduce(
       (count, record) =>
@@ -648,6 +653,7 @@ app.get("/api/nfl/board", async (_request, response) => {
   const playerProps = analyzePlayerProps(playerPropEvents, {
     statistics: playerStatistics,
     trends,
+    defensiveStatsByTeam: defensivePropStats,
     injuryReport,
     news,
     playerRosters,

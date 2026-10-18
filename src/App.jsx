@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Activity,
-  ArrowDownRight,
   ArrowUpRight,
   ChevronDown,
   CircleHelp,
@@ -331,6 +330,16 @@ function PlayerPropCard({ pick }) {
             ? `${evidence.opponent.pointsAllowedPerGame.toFixed(1)} points allowed per game`
             : "season scoring data unavailable"}.</li>
         )}
+        {evidence.opponentPropStats ? (
+          <li>
+            <b>Defense vs. {candidate.market.toLowerCase()}:</b>{" "}
+            {evidence.opponentPropStats.stats.map((stat) =>
+              `${stat.total} ${stat.label.toLowerCase()} allowed in ${stat.games} games (${stat.perGame.toFixed(1)} per game)`,
+            ).join("; ")}. Ranked #{evidence.opponentPropStats.rank} of {evidence.opponentPropStats.teamsRanked} defenses, fewest allowed.
+          </li>
+        ) : evidence.opponent && (
+          <li><b>Defense vs. {candidate.market.toLowerCase()}:</b> season-to-date opponent prop stats are unavailable.</li>
+        )}
         {evidence.injury && (
           <li><b>Injury report:</b> {evidence.injury.player} ({evidence.injury.status.toLowerCase()}){evidence.injury.detail ? ` · ${evidence.injury.detail}` : ""}.</li>
         )}
@@ -381,6 +390,14 @@ function AnytimeTdParlayCard({ parlay, index }) {
               Offense {leg.pointsPerGame.toFixed(1)} PPG · {leg.opponent} allows{" "}
               {leg.opponentPointsAllowedPerGame.toFixed(1)} PPG
             </span>
+            {leg.opponentPropStats && (
+              <span className="td-parlay-trend">
+                Defense vs. touchdown scorers:{" "}
+                {leg.opponentPropStats.stats.map((stat) =>
+                  `${stat.total} ${stat.label.toLowerCase()} in ${stat.games} games (${stat.perGame.toFixed(1)}/game)`,
+                ).join("; ")} · ranked #{leg.opponentPropStats.rank} of {leg.opponentPropStats.teamsRanked} defenses (fewest allowed)
+              </span>
+            )}
             {leg.injury && (
               <span className="td-parlay-injury">
                 Injury status: {leg.injury.status}
@@ -776,7 +793,6 @@ export default function App() {
     game,
     oddsEvent: matchOdds(game, oddsEvents),
   }));
-  const upcomingCount = board?.games?.length ?? 0;
   const trackedTeams = board?.trends?.length ?? 0;
   const activeLabel =
     DESK_VIEWS.find((view) => view.key === activeView)?.label ?? "Overview";
@@ -804,7 +820,7 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-section-heading">
-          <span>TEAM TRENDS</span>
+          <span>TEAMS</span>
           <span className="team-count">{trackedTeams || 32}</span>
         </div>
         <label className="team-search">
@@ -818,8 +834,8 @@ export default function App() {
         </label>
         <div className="team-list">
           {filteredTeams.map((group) => (
-            <section className="team-group" key={group.division}>
-              <h2>{group.division}</h2>
+            <details className="team-group" key={group.division}>
+              <summary>{group.division}</summary>
               {group.teams.map((team) => {
                 const record = trendsByName.get(team.toLowerCase());
                 const selected = selectedTeam === team;
@@ -838,7 +854,7 @@ export default function App() {
                   </button>
                 );
               })}
-            </section>
+            </details>
           ))}
         </div>
         <div className="sidebar-bottom">
@@ -856,11 +872,6 @@ export default function App() {
           </a>
           <div className="breadcrumb">NFL <span>/</span> {activeLabel.toUpperCase()}</div>
           <div className="topbar-right">
-            <span className="season-pill">{board?.season ?? new Date().getFullYear()} SEASON</span>
-            <span className={`live-pill${board?.oddsConfigured ? " live" : ""}`}>
-              <span className="status-dot" />
-              {board?.oddsConfigured ? "ODDS KEY SET" : "ODDS NOT CONNECTED"}
-            </span>
             <button className="refresh-button" onClick={loadBoard} aria-label="Refresh data">
               <RefreshCw size={15} />
             </button>
@@ -868,61 +879,6 @@ export default function App() {
         </header>
 
         <div className="content">
-          {activeView === "overview" && <section className="hero">
-            <div className="hero-copy">
-              <div className="eyebrow"><span /> YOUR NFL MARKET DESK</div>
-              <h1>Read the game.<br /><em>Not the noise.</em></h1>
-              <p>
-                Real-time lines, team form, and matchup context. Your research starts here.
-              </p>
-              <div className="hero-actions">
-                <button className="primary-button" onClick={() => navigateView("games")}>
-                  Explore matchups <ArrowDownRight size={16} />
-                </button>
-                <span className="hero-note"><Shield size={14} /> Research, not recommendations</span>
-              </div>
-            </div>
-            <div className="hero-art" aria-hidden="true">
-              <div className="art-ring ring-one" />
-              <div className="art-ring ring-two" />
-              <div className="art-ring ring-three" />
-              <div className="art-ball">V</div>
-              <div className="art-tag">EST. 2026 <span>·</span> NFL</div>
-              <div className="art-spark"><Sparkles size={15} /></div>
-            </div>
-            <div className="hero-index">01 — 04</div>
-          </section>}
-
-          <section className="stats-row" aria-label="NFL board summary">
-            <div className="stat-card">
-              <div className="stat-top"><span>UPCOMING GAMES</span><Trophy size={15} /></div>
-              <div className="stat-value">{loading ? "—" : String(upcomingCount).padStart(2, "0")}<small> THIS WEEK</small></div>
-              <div className="stat-caption">Schedule from ESPN</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-top"><span>TEAMS TRACKED</span><Activity size={15} /></div>
-              <div className="stat-value">32<small> NFL TEAMS</small></div>
-              <div className="stat-caption">{trackedTeams ? `${trackedTeams} teams with current-season results` : "Records populate as games are played"}</div>
-            </div>
-            <div className="stat-card">
-              <div className="stat-top"><span>SPORTSBOOK LINES</span><Radio size={15} /></div>
-              <div className={`stat-value ${board?.oddsConfigured ? "accent-value" : ""}`}>
-                {board?.oddsConfigured ? oddsEvents.length : "—"}<small> {board?.oddsConfigured ? "GAMES PRICED" : "AWAITING API KEY"}</small>
-              </div>
-              <div className="stat-caption">{board?.oddsConfigured ? "Live feed · odds refresh every 15m" : "Connect an Odds API key to view lines"}</div>
-            </div>
-            <div className="stat-card trend-stat">
-              <div className="stat-top"><span>DATA REFRESH</span><Clock3 size={15} /></div>
-              <div className="stat-value refresh-time">
-                {board?.updatedAt
-                  ? new Intl.DateTimeFormat("en-US", { hour: "numeric", minute: "2-digit" }).format(new Date(board.updatedAt))
-                  : "—"}
-                <small> LOCAL</small>
-              </div>
-              <div className="stat-caption">Auto-refreshes every 60 seconds</div>
-            </div>
-          </section>
-
           {error && (
             <div className="notice" role="status">
               <CircleHelp size={16} />
@@ -1046,23 +1002,13 @@ export default function App() {
           <section className="analysis-section" id="smart-analysis">
             {activeView === "overview" && (
               <>
+                <div className="page-intro">
+                  <span className="eyebrow section-eyebrow"><span /> {board?.season ?? new Date().getFullYear()} NFL SEASON</span>
+                  <h1>Week {board?.week ?? "—"} overview</h1>
+                  <p>Current-week matchups, sportsbook prices, and team context.</p>
+                </div>
                 <PickOfWeekCard pickOfWeek={board?.pickOfWeek} />
                 <PickOfWeekRecord record={board?.pickOfWeekRecord} />
-                <div className="overview-links">
-                  <div>
-                    <div className="eyebrow section-eyebrow"><span /> YOUR RESEARCH WORKSPACE</div>
-                    <h2>Where do you want to dig in?</h2>
-                  </div>
-                  <div className="overview-link-grid">
-                    {DESK_VIEWS.filter((view) => view.key !== "overview").map(({ key, label, icon: Icon }) => (
-                      <button key={key} onClick={() => navigateView(key)}>
-                        <Icon size={16} />
-                        <span>{label}</span>
-                        <ArrowUpRight size={13} />
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </>
             )}
             {activeView === "picks" && (

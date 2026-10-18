@@ -203,6 +203,7 @@ function makeEvidence(
   candidate,
   statsByPlayer,
   trendsByTeam,
+  defensiveStatsByTeam,
   injuryReport,
   news,
   playerRosters,
@@ -222,6 +223,9 @@ function makeEvidence(
   const opponentName =
     teamKey === homeKey ? candidate.awayTeam : teamKey === awayKey ? candidate.homeTeam : null;
   const opponent = opponentName ? trendsByTeam.get(canonical(opponentName)) : null;
+  const opponentPropStats = opponentName
+    ? defensiveStatsByTeam.get(canonical(opponentName))?.[candidate.marketKey] ?? null
+    : null;
   const playerTeamTrend = playerTeam ? trendsByTeam.get(canonical(playerTeam)) : null;
   const opponentGames = opponent
     ? opponent.wins + opponent.losses + opponent.ties
@@ -264,6 +268,11 @@ function makeEvidence(
           opponent.pointsAgainst / opponentGames
         ).toFixed(1)} points per game`
       : `${opponentName ?? "The opponent"}'s current-season defensive trend is unavailable`;
+  const propDefenseContext = opponentPropStats
+    ? `${opponentName} has allowed ${opponentPropStats.stats
+        .map((stat) => `${stat.total} ${stat.label.toLowerCase()} in ${stat.games} games (${stat.perGame.toFixed(1)} per game)`)
+        .join(" and ")}; that ranks #${opponentPropStats.rank} of ${opponentPropStats.teamsRanked} defenses (fewest allowed) for ${candidate.market.toLowerCase()}`
+    : `${opponentName ?? "The opponent"}'s season-to-date ${candidate.market.toLowerCase()} defense stats are unavailable`;
   const newsContext = relatedNews.length
     ? `Recent ESPN coverage: ${relatedNews.map((article) => article.headline).join(" ")}`
     : "No directly related headline appeared in ESPN's latest NFL feed.";
@@ -291,6 +300,15 @@ function makeEvidence(
                 : null,
           }
         : null,
+      opponentPropStats: opponentPropStats
+        ? {
+            team: opponentName,
+            rank: opponentPropStats.rank,
+            teamsRanked: opponentPropStats.teamsRanked,
+            games: opponentPropStats.games,
+            stats: opponentPropStats.stats,
+          }
+        : null,
       offense: playerTeamTrend && playerTeamGames
         ? {
             team: playerTeam,
@@ -316,7 +334,7 @@ function makeEvidence(
       summary:
         `${candidate.player}'s ${candidate.market.toLowerCase()} ${candidate.selection.toLowerCase()} is priced at ${candidate.bestPrice > 0 ? "+" : ""}${candidate.bestPrice} by ${candidate.bestBookmaker}. ` +
         `${candidate.bookmakerCount} books put the ${candidate.probabilitySource} at ${Math.round(candidate.fairProbability * 1000) / 10}%. ` +
-        `${seasonProduction}. ${offenseContext}; ${defenseContext}. ` +
+        `${seasonProduction}. ${offenseContext}; ${defenseContext}. ${propDefenseContext}. ` +
         `${recentTeamGames.length ? `Recent ${playerTeam} results: ${recentTeamGames.join("; ")}. ` : ""}` +
         `${injuryContext} ${newsContext} These are season-to-date research notes, not a player projection.`,
     },
@@ -328,6 +346,7 @@ export function analyzePlayerProps(
   {
     statistics = null,
     trends = [],
+    defensiveStatsByTeam = new Map(),
     injuryReport = null,
     news = [],
     playerRosters = new Map(),
@@ -335,6 +354,9 @@ export function analyzePlayerProps(
 ) {
   const statsByPlayer = makeStatsLookup(statistics);
   const trendsByTeam = new Map(trends.map((team) => [canonical(team.name), team]));
+  const defensesByTeam = new Map(
+    [...defensiveStatsByTeam].map(([team, stats]) => [canonical(team), stats]),
+  );
   const candidates = [];
 
   for (const event of propEvents) {
@@ -374,7 +396,7 @@ export function analyzePlayerProps(
         bookmakerCount,
         breakEvenProbability: impliedProbability(bestQuote.price),
         expectedValue: selected.fairProbability * decimalOdds(bestQuote.price) - 1,
-      }, statsByPlayer, trendsByTeam, injuryReport, news, playerRosters);
+      }, statsByPlayer, trendsByTeam, defensesByTeam, injuryReport, news, playerRosters);
     })
     .sort((a, b) => b.candidate.expectedValue - a.candidate.expectedValue);
 }
@@ -460,6 +482,7 @@ export function buildAnytimeTouchdownParlays(
         opponentPointsAllowedPerGame,
         trendFactor,
         researchScore: marketProbability * trendFactor,
+        opponentPropStats: evidence.opponentPropStats,
         injury: evidence.injury,
       });
       bookmakers.set(candidate.eventId, gameLegs);

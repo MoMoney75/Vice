@@ -65,9 +65,14 @@ Player-prop research supports anytime touchdowns, passing yards, rushing yards,
 receptions, and receiving yards. It compares player markets across at least two
 books and includes available ESPN leaderboard totals/ranks, team scoring form,
 opponent points allowed, recent team scorelines, injury status, and related
-ESPN headlines. Cached ESPN team rosters help identify players missing from the
-leaderboard and provide their position. ESPN player leaderboard values are
-cumulative season totals, not per-game or matchup projections.
+ESPN headlines. Each prop also shows the opposing defense's current-season
+allowed totals and per-game averages for the matching stat (such as rushing
+yards and rushing touchdowns), plus its league rank by per-game allowance.
+These opponent totals are aggregated from ESPN completed-game box scores and
+are descriptive context, not a player projection. Cached ESPN team rosters
+help identify players missing from the leaderboard and provide their position.
+ESPN player leaderboard values are cumulative season totals, not per-game or
+matchup projections.
 Anytime-touchdown prices are often posted as Yes-only markets, so their
 displayed implied chances are not de-vigged. The odds market is not an
 independent performance model, and player availability and reported news can
