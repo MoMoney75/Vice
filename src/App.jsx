@@ -726,6 +726,11 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const selectTeam = (team) => {
+    setSelectedTeam(selectedTeam === team ? "" : team);
+    navigateView("games");
+  };
+
   const trendsByName = useMemo(
     () => new Map((board?.trends ?? []).map((team) => [team.name.toLowerCase(), team])),
     [board],
@@ -843,7 +848,8 @@ export default function App() {
                   <button
                     className={`team-link${selected ? " selected" : ""}`}
                     key={team}
-                    onClick={() => setSelectedTeam(selected ? "" : team)}
+                    onClick={() => selectTeam(team)}
+                    aria-pressed={selected}
                   >
                     <span>{team}</span>
                     {record ? (
@@ -1139,6 +1145,14 @@ export default function App() {
                 <div className="eyebrow section-eyebrow"><span /> THE BOARD</div>
                 <h2>{selectedTeam || `Week ${board?.week ?? "—"} matchups`}<span className="heading-count">{filteredGames.length}</span></h2>
               </div>
+              {selectedTeam && (
+                <button
+                  className="clear-team-filter"
+                  onClick={() => setSelectedTeam("")}
+                >
+                  Clear {selectedTeam} filter
+                </button>
+              )}
               <div className="market-controls">
                 <span className="control-label"><SlidersHorizontal size={13} /> VIEW MARKET</span>
                 <div className="market-tabs">
@@ -1243,9 +1257,10 @@ export default function App() {
                 const record = trendsByName.get(team.toLowerCase());
                 return (
                   <button
-                    className="trend-row"
+                    className={`trend-row${selectedTeam === team ? " selected" : ""}`}
                     key={team}
-                    onClick={() => setSelectedTeam(selectedTeam === team ? "" : team)}
+                    onClick={() => selectTeam(team)}
+                    aria-pressed={selectedTeam === team}
                   >
                     <span className="trend-team">{team}</span>
                     <TeamRecord record={record} />
