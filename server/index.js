@@ -576,6 +576,24 @@ app.get("/api/nfl/board", async (_request, response) => {
   }
   if (settledPickChanged) void persistCache();
 
+  const trends = makeTeamTrends(games).map((team) => ({
+    ...team,
+    homeAts: atsRecords.get(team.id)?.home ?? null,
+    awayAts: atsRecords.get(team.id)?.away ?? null,
+  }));
+  const now = Date.now();
+  const upcoming = (currentWeekSchedule ?? [])
+    .filter((game) => {
+      const gameTime = new Date(game.date).getTime();
+      return !game.completed && gameTime >= now;
+    })
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+
+  const fullOdds = oddsResult.status === "fulfilled" ? oddsResult.value ?? [] : [];
+  const odds = filterToSupportedSportsbooks(
+    filterOddsToGames(fullOdds, upcoming),
+  );
+  const analysis = analyzeOdds(odds, { trends, injuryReport, news });
   const smartPickKey = week ? `smart-picks-${season}-${week}` : null;
   const savedSmartPicks = smartPickKey
     ? cache.get(smartPickKey)?.value?.picks ?? []
@@ -609,25 +627,6 @@ app.get("/api/nfl/board", async (_request, response) => {
         : [];
     }),
   );
-
-  const trends = makeTeamTrends(games).map((team) => ({
-    ...team,
-    homeAts: atsRecords.get(team.id)?.home ?? null,
-    awayAts: atsRecords.get(team.id)?.away ?? null,
-  }));
-  const now = Date.now();
-  const upcoming = (currentWeekSchedule ?? [])
-    .filter((game) => {
-      const gameTime = new Date(game.date).getTime();
-      return !game.completed && gameTime >= now;
-    })
-    .sort((a, b) => new Date(a.date) - new Date(b.date));
-
-  const fullOdds = oddsResult.status === "fulfilled" ? oddsResult.value ?? [] : [];
-  const odds = filterToSupportedSportsbooks(
-    filterOddsToGames(fullOdds, upcoming),
-  );
-  const analysis = analyzeOdds(odds, { trends, injuryReport, news });
   const propResults = process.env.ODDS_API_KEY && oddsQuotaReady
     ? await Promise.allSettled(
         odds.map((event) =>
