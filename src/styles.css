@@ -252,6 +252,21 @@ button { color: inherit; }
 .pick-record-result.result-push, .pick-record-result.result-pending { color: #d7b86f; }
 .pick-record-history > p { margin: 8px 0; color: #929d91; line-height: 1.5; }
 .pick-record-caveat { margin: 10px 0 0; line-height: 1.5; }
+.history-section { margin-top: 28px; }
+.history-record-stats { margin: 0 0 14px; }
+.history-week-list { display: grid; gap: 10px; }
+.history-week { padding: 14px; border: 1px solid #29342b; border-radius: 4px; background: #111713; }
+.history-week > h3 { margin: 0 0 10px; color: #bdc9b9; font: 9px var(--mono); }
+.history-picks { display: grid; gap: 7px; }
+.history-pick { padding: 10px; border: 1px solid #263027; border-radius: 3px; background: #0f1511; }
+.history-pick-heading { display: flex; justify-content: space-between; gap: 10px; color: #8e9b8d; font: 8px var(--mono); }
+.history-selection { display: block; margin-top: 7px; color: #d0d9d0; font-size: 10px; }
+.result-player-stats { display: grid; gap: 5px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #263027; color: #879287; font-size: 8px; line-height: 1.4; }
+.result-player-stats > strong { color: #a9bd96; font: 7px var(--mono); letter-spacing: .06em; }
+.result-player-stats b { color: #c9d3c7; font-weight: 600; }
+.smart-pick-result { margin-top: 9px; padding: 7px; border: 1px solid #29342b; color: #9cc66d; font: 8px var(--mono); }
+.smart-pick-result.result-loss { color: #cf887b; }
+.smart-pick-result.result-push, .smart-pick-result.result-pending { color: #d7b86f; }
 .analysis-heading { align-items: end; }
 .nfl-news-section { margin-top: 30px; }
 .nfl-news-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 10px; }
@@ -356,6 +371,7 @@ button { color: inherit; }
 .team-initials { display: grid; place-items: center; width: 27px; height: 25px; border: 1px solid #344034; border-radius: 3px; background: #1b241b; color: var(--green); font: 9px var(--mono); }
 .team-name { flex: 1; font-size: 11px; font-weight: 600; }
 .team-record { color: #929c92; font: 9px var(--mono); }
+.game-score { color: #e0e8df; font: 600 11px var(--mono); }
 .pending-record { color: #596359; }
 .versus { margin: 1px 0 1px 10px; color: #5d695e; font: 7px var(--mono); }
 .offer-list { border-top: 1px solid #263027; }
@@ -500,7 +516,7 @@ button { color: inherit; }
   .team-trends-section .section-heading { flex-direction: row; align-items: end; }
   .team-trends-section .trend-caption { text-align: right; }
   .footer { align-items: start; flex-direction: column; }
-  .mobile-nav { position: fixed; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); padding: 7px 5px calc(7px + env(safe-area-inset-bottom)); border-top: 1px solid #2b352d; background: #101511f5; backdrop-filter: blur(14px); }
+  .mobile-nav { position: fixed; inset: auto 0 0; z-index: 10; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); padding: 7px 5px calc(7px + env(safe-area-inset-bottom)); border-top: 1px solid #2b352d; background: #101511f5; backdrop-filter: blur(14px); }
   .mobile-nav button { display: grid; justify-items: center; align-content: center; gap: 3px; min-width: 0; min-height: 39px; border: 0; border-radius: 4px; background: transparent; color: #8e998f; font-size: 7px; cursor: pointer; }
   .mobile-nav button.active, .mobile-nav button:focus { background: #1a251a; color: var(--green); }
 }
@@ -660,6 +676,10 @@ button { color: inherit; }
   .pick-week-reasoning, .pick-evidence-list { font-size: 14px; }
   .pick-week-footnote { font-size: 12px; }
   .pick-record-card { margin: 0 0 18px; padding: 15px; }
+  .history-week { padding: 11px; }
+  .history-pick-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .history-selection { font-size: 9px; }
+  .result-player-stats { font-size: 7px; }
   .pick-record-heading { align-items: flex-start; flex-direction: column; }
   .pick-record-heading h3 { font-size: 17px; }
   .pick-record-pending { font-size: 12px; }
@@ -710,7 +730,7 @@ button { color: inherit; }
   .footer { gap: 8px; margin-top: 28px; padding: 16px 0 10px; font-size: 12px; }
   .mobile-nav {
     display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
+    grid-template-columns: repeat(7, minmax(0, 1fr));
     min-height: 68px;
     padding: 7px 6px calc(7px + env(safe-area-inset-bottom));
   }

@@ -31,8 +31,10 @@ persisted in the ignored local `.vice-cache.json`; the larger, non-costly ESPN
 responses stay in memory. Keep API keys in `.env`; do not commit them. Check
 your provider's current plan quota before enabling frequent full-slate refreshes.
 
-The board and parlay builder are limited to not-yet-started games in the
-current ESPN NFL week. The smart-bet screen compares the best available book
+The board keeps every game from the current ESPN NFL week visible, including
+completed games and final scores, until ESPN advances to the next week. Live
+odds, player props, and parlay building remain limited to not-yet-started games.
+The smart-bet screen compares the best available book
 price with the average no-vig probability from paired sportsbook markets. Its
 expected-return figure is market-derived, not an independent prediction.
 Parlay options include a higher-hit-rate set and a higher-payout set that
@@ -60,7 +62,11 @@ Vise tracks each locked weekly Pick of the Week against the final ESPN score.
 Spread picks are graded against the saved selection-side point; totals are
 graded against the saved over/under line. Wins, losses, pushes, pending picks,
 and week-by-week results are persisted in the local ignored cache file. The
-record does not change or retroactively reselect earlier picks.
+record does not change or retroactively reselect earlier picks. Smart game
+picks are also captured per game and week, retain their original selection,
+and are graded against final scores. The History view shows both pick types
+for the season, with final scores and available passing, rushing, and receiving
+leaders from ESPN box scores.
 
 Player-prop research supports anytime touchdowns, passing yards, rushing yards,
 receptions, and receiving yards. It compares player markets across at least two

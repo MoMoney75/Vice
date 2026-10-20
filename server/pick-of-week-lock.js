@@ -38,11 +38,18 @@ export function resolvePickOfWeekLock(analysis, savedLock, selectedAt = new Date
 
 export function settlePickOfWeekLock(savedLock, game, settledAt = new Date().toISOString()) {
   const candidate = savedLock?.candidate;
-  if (!candidate || savedLock.result || !game?.completed) return savedLock;
+  if (!candidate || !game?.completed) return savedLock;
 
   const homeScore = Number(game.home?.score);
   const awayScore = Number(game.away?.score);
   if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) return savedLock;
+  if (savedLock.result) {
+    if (savedLock.result.keyPlayers?.length || !game.keyPlayers?.length) return savedLock;
+    return {
+      ...savedLock,
+      result: { ...savedLock.result, keyPlayers: game.keyPlayers },
+    };
+  }
 
   let margin;
   if (candidate.marketKey === "spreads") {
@@ -102,6 +109,7 @@ export function summarizePickOfWeekRecord(locks) {
       score: lock.result
         ? `${lock.result.awayScore}-${lock.result.homeScore}`
         : null,
+      keyPlayers: lock.result?.keyPlayers ?? [],
     }));
 
   return {

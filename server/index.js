@@ -18,12 +18,18 @@ import {
 import { mapNflNews } from "./nfl-news.js";
 import { buildAgainstTheSpreadRecords } from "./against-the-spread.js";
 import { buildDefensivePropStats } from "./defensive-prop-stats.js";
+import { buildKeyPlayers } from "./game-results.js";
 import { filterToSupportedSportsbooks } from "./sportsbook-filter.js";
 import {
   resolvePickOfWeekLock,
   settlePickOfWeekLock,
   summarizePickOfWeekRecord,
 } from "./pick-of-week-lock.js";
+import {
+  resolveSmartPicks,
+  settleSmartPick,
+  summarizeSmartPickRecord,
+} from "./smart-pick-lock.js";
 import {
   describeOddsQuotaFailure,
   isTransientNetworkFailure,
@@ -102,7 +108,8 @@ function isPersistentCacheKey(key) {
   return key === "odds-quota" ||
     key === "odds" ||
     key.startsWith("player-props-") ||
-    key.startsWith("pick-of-week-");
+    key.startsWith("pick-of-week-") ||
+    key.startsWith("smart-picks-");
 }
 
 if (existsSync(cacheFile)) {
@@ -112,6 +119,7 @@ if (existsSync(cacheFile)) {
     for (const [key, value] of stored.entries ?? []) {
       if (
         key.startsWith("pick-of-week-") ||
+        key.startsWith("smart-picks-") ||
         (oddsApiKeyMatches && isPersistentCacheKey(key))
       ) {
         cache.set(key, value);
@@ -520,6 +528,12 @@ app.get("/api/nfl/board", async (_request, response) => {
     }
   });
   const atsRecords = buildAgainstTheSpreadRecords(completedSeasonGames, atsSummaries);
+  const keyPlayersByGame = new Map(
+    completedSeasonGames.map((game) => [
+      game.id,
+      buildKeyPlayers(game, atsSummaries.get(game.id)),
+    ]),
+  );
   const defensivePropStats = buildDefensivePropStats(
     completedSeasonGames,
     atsSummaries,
@@ -542,7 +556,12 @@ app.get("/api/nfl/board", async (_request, response) => {
 
   let settledPickChanged = false;
   const completedGames = new Map(
-    games.filter((game) => game.completed).map((game) => [game.id, game]),
+    games
+      .filter((game) => game.completed)
+      .map((game) => [
+        game.id,
+        { ...game, keyPlayers: keyPlayersByGame.get(game.id) ?? [] },
+      ]),
   );
   for (const [key, entry] of cache) {
     if (!key.startsWith("pick-of-week-") || !entry.value?.candidate) continue;
@@ -556,6 +575,40 @@ app.get("/api/nfl/board", async (_request, response) => {
     }
   }
   if (settledPickChanged) void persistCache();
+
+  const smartPickKey = week ? `smart-picks-${season}-${week}` : null;
+  const savedSmartPicks = smartPickKey
+    ? cache.get(smartPickKey)?.value?.picks ?? []
+    : [];
+  let smartPicks = resolveSmartPicks(analysis, savedSmartPicks);
+  let smartPicksChanged = smartPicks.length !== savedSmartPicks.length;
+  smartPicks = smartPicks.map((pick) => {
+    const settled = settleSmartPick(
+      pick,
+      completedGames.get(pick.candidate.eventId),
+    );
+    if (settled !== pick) smartPicksChanged = true;
+    return settled;
+  });
+  if (smartPickKey && smartPicksChanged) {
+    cache.set(smartPickKey, {
+      value: { picks: smartPicks },
+      savedAt: Date.now(),
+    });
+    void persistCache();
+  }
+  const smartPickRecord = summarizeSmartPickRecord(
+    [...cache.entries()].flatMap(([key, entry]) => {
+      const match = /^smart-picks-(\d+)-(\d+)$/.exec(key);
+      return match && Array.isArray(entry.value?.picks)
+        ? [{
+            season: Number(match[1]),
+            week: Number(match[2]),
+            picks: entry.value.picks,
+          }]
+        : [];
+    }),
+  );
 
   const trends = makeTeamTrends(games).map((team) => ({
     ...team,
@@ -743,7 +796,10 @@ app.get("/api/nfl/board", async (_request, response) => {
   response.json({
     season,
     week,
-    games: upcoming,
+    games: currentWeekSchedule.map((game) => ({
+      ...game,
+      keyPlayers: keyPlayersByGame.get(game.id) ?? [],
+    })),
     trends,
     odds,
     analysis,
@@ -760,6 +816,8 @@ app.get("/api/nfl/board", async (_request, response) => {
       : null,
     pickOfWeek,
     pickOfWeekRecord,
+    smartPicks,
+    smartPickRecord,
     news,
     atsGamesAvailable,
     injuryReportUpdatedAt: injuryReport?.updatedAt ?? null,

@@ -6,6 +6,7 @@ import {
   CircleHelp,
   Clock3,
   ExternalLink,
+  History,
   Newspaper,
   Radio,
   RefreshCw,
@@ -37,6 +38,7 @@ const DESK_VIEWS = [
   { key: "picks", label: "Game picks", icon: Trophy },
   { key: "games", label: "Game lines", icon: Radio },
   { key: "teams", label: "Team form", icon: Shield },
+  { key: "history", label: "History", icon: History },
   { key: "news", label: "NFL News", icon: Newspaper },
 ];
 
@@ -169,6 +171,8 @@ function SmartBetEvidence({ evidence }) {
 
 function SmartBetCard({ game, smartBet }) {
   const candidate = smartBet?.candidate;
+  const hasConsensusEdge = smartBet?.positiveConsensusEdge ??
+    (candidate ? candidate.expectedValue > 0 : false);
   return (
     <article className="smart-card">
       <div className="smart-card-head">
@@ -184,7 +188,10 @@ function SmartBetCard({ game, smartBet }) {
             </div>
             <span className="smart-price">{americanOdds(candidate.bestPrice)}</span>
           </div>
-          <div className="smart-book">Best listed at {candidate.bestBookmaker} · {candidate.bookCount} books compared</div>
+          <div className="smart-book">
+            {smartBet.selectedAt ? "Locked for this week · " : ""}
+            Best listed at {candidate.bestBookmaker} · {candidate.bookCount} books compared
+          </div>
           {smartBet.evidence && (
             <SmartBetEvidence evidence={smartBet.evidence} />
           )}
@@ -204,9 +211,17 @@ function SmartBetCard({ game, smartBet }) {
               </strong>
             </div>
           </div>
-          <div className={`smart-verdict${smartBet.positiveConsensusEdge ? " has-edge" : ""}`}>
-            {smartBet.positiveConsensusEdge ? "Positive market-consensus signal" : "No positive market-consensus signal"}
+          <div className={`smart-verdict${hasConsensusEdge ? " has-edge" : ""}`}>
+            {hasConsensusEdge ? "Positive market-consensus signal" : "No positive market-consensus signal"}
           </div>
+          {smartBet.result && (
+            <>
+              <div className={`smart-pick-result result-${smartBet.result.outcome}`}>
+                {smartBet.result.outcome.toUpperCase()} · FINAL {smartBet.result.awayScore}-{smartBet.result.homeScore}
+              </div>
+              <KeyPlayers players={smartBet.result.keyPlayers} />
+            </>
+          )}
         </>
       ) : (
         <div className="smart-empty">
@@ -624,6 +639,88 @@ function PickOfWeekRecord({ record }) {
   );
 }
 
+function KeyPlayers({ players = [] }) {
+  if (!players.length) return null;
+  return (
+    <div className="result-player-stats">
+      <strong>KEY PLAYER STATS</strong>
+      {players.map((player) => (
+        <span key={`${player.team}-${player.name}`}>
+          <b>{player.name}</b> · {player.team} · {player.stats}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function HistorySection({ pickRecord, smartPickRecord }) {
+  const entries = [
+    ...(pickRecord?.history ?? []).map((pick) => ({ ...pick, type: "Pick of the Week" })),
+    ...(smartPickRecord?.history ?? []).map((pick) => ({ ...pick, type: "Smart Pick" })),
+  ];
+  const weeks = new Map();
+  for (const pick of entries) {
+    const key = `${pick.season}-${pick.week}`;
+    const week = weeks.get(key) ?? { season: pick.season, week: pick.week, picks: [] };
+    week.picks.push(pick);
+    weeks.set(key, week);
+  }
+  const sortedWeeks = [...weeks.values()].sort(
+    (a, b) => b.season - a.season || b.week - a.week,
+  );
+
+  return (
+    <section className="history-section">
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow section-eyebrow"><span /> SEASON TRACK RECORD</div>
+          <h2>Pick history <span className="heading-count">{entries.length}</span></h2>
+        </div>
+        <span className="trend-caption">Locked picks · final ESPN scores and player stats</span>
+      </div>
+      <div className="pick-record-stats history-record-stats">
+        {[
+          ["WINS", (pickRecord?.wins ?? 0) + (smartPickRecord?.wins ?? 0)],
+          ["LOSSES", (pickRecord?.losses ?? 0) + (smartPickRecord?.losses ?? 0)],
+          ["PUSHES", (pickRecord?.pushes ?? 0) + (smartPickRecord?.pushes ?? 0)],
+          ["PENDING", (pickRecord?.pending ?? 0) + (smartPickRecord?.pending ?? 0)],
+        ].map(([label, value]) => (
+          <div key={label}><strong>{value}</strong><span>{label}</span></div>
+        ))}
+      </div>
+      {sortedWeeks.length ? (
+        <div className="history-week-list">
+          {sortedWeeks.map((week) => (
+            <article className="history-week" key={`${week.season}-${week.week}`}>
+              <h3>{week.season} · WEEK {week.week}</h3>
+              <div className="history-picks">
+                {week.picks.map((pick) => (
+                  <div className="history-pick" key={`${pick.type}-${pick.game}-${pick.selection}`}>
+                    <div className="history-pick-heading">
+                      <span>{pick.type} · {pick.game}</span>
+                      <b className={`pick-record-result result-${pick.result}`}>
+                        {pick.result.toUpperCase()}{pick.score ? ` · ${pick.score}` : ""}
+                      </b>
+                    </div>
+                    <strong className="history-selection">{pick.selection} · {pick.market}</strong>
+                    <KeyPlayers players={pick.keyPlayers} />
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      ) : (
+        <div className="empty-state">
+          <History size={22} />
+          <strong>No picks have been recorded yet</strong>
+          <span>Weekly picks and results will appear here as they are selected and games finish.</span>
+        </div>
+      )}
+    </section>
+  );
+}
+
 function TeamRecord({ record }) {
   if (!record) return <span className="team-record pending-record">—</span>;
   return (
@@ -654,12 +751,18 @@ function GameCard({ game, oddsEvent, marketKey }) {
         <div className="match-team">
           <span className="team-initials">{game.away?.abbreviation}</span>
           <span className="team-name">{game.away?.name}</span>
+          {game.away?.score !== null && game.away?.score !== undefined && (
+            <strong className="game-score">{game.away.score}</strong>
+          )}
           <TeamRecord record={game.away?.record} />
         </div>
         <div className="versus">AT</div>
         <div className="match-team">
           <span className="team-initials">{game.home?.abbreviation}</span>
           <span className="team-name">{game.home?.name}</span>
+          {game.home?.score !== null && game.home?.score !== undefined && (
+            <strong className="game-score">{game.home.score}</strong>
+          )}
           <TeamRecord record={game.home?.record} />
         </div>
       </div>
@@ -667,7 +770,7 @@ function GameCard({ game, oddsEvent, marketKey }) {
         <span>HOME ATS <strong>{atsRecordText(game.home?.record?.homeAts)}</strong></span>
         <span>AWAY ATS <strong>{atsRecordText(game.away?.record?.awayAts)}</strong></span>
       </div>
-      <div className="offer-list">
+      {game.completed ? <KeyPlayers players={game.keyPlayers} /> : <div className="offer-list">
         {offers.length ? (
           offers
             .sort((a, b) => (b.price ?? -Infinity) - (a.price ?? -Infinity))
@@ -689,9 +792,9 @@ function GameCard({ game, oddsEvent, marketKey }) {
             {oddsEvent ? "This market is not available for this game." : "No live prices available"}
           </div>
         )}
-      </div>
+      </div>}
       <div className="game-card-footer">
-        <span>{offers.length ? "Best listed price by outcome" : "Connect odds to compare prices"}</span>
+        <span>{game.completed ? "Final result" : offers.length ? "Best listed price by outcome" : "Connect odds to compare prices"}</span>
         <ExternalLink size={12} />
       </div>
     </article>
@@ -758,6 +861,9 @@ export default function App() {
   );
   const oddsEvents = board?.odds ?? [];
   const smartBets = board?.analysis?.smartBets ?? [];
+  const savedSmartPicks = new Map(
+    (board?.smartPicks ?? []).map((pick) => [pick.candidate.eventId, pick]),
+  );
   const parlays = board?.analysis?.parlays ?? [];
   const playerProps = board?.playerProps ?? [];
   const filteredPlayerProps =
@@ -1017,6 +1123,13 @@ export default function App() {
             />
           )}
 
+          {activeView === "history" && (
+            <HistorySection
+              pickRecord={board?.pickOfWeekRecord}
+              smartPickRecord={board?.smartPickRecord}
+            />
+          )}
+
           {(activeView === "overview" || activeView === "picks") && (
           <section className="analysis-section" id="smart-analysis">
             {activeView === "overview" && (
@@ -1072,14 +1185,14 @@ export default function App() {
                 <SmartBetCard
                   game={game}
                   key={game.id}
-                  smartBet={matchSmartBet(game, smartBets)}
+                  smartBet={savedSmartPicks.get(game.id) ?? matchSmartBet(game, smartBets)}
                 />
               ))}
               {!loading && filteredGames.length === 0 && (
                 <div className="empty-state">
                   <Activity size={22} />
-                  <strong>No upcoming games to analyze</strong>
-                  <span>Market comparisons appear when upcoming game lines are available.</span>
+                  <strong>No games found for this week</strong>
+                  <span>Market comparisons appear when sportsbook lines are available.</span>
                 </div>
               )}
             </div>
@@ -1309,7 +1422,7 @@ export default function App() {
             aria-current={activeView === key ? "page" : undefined}
           >
             <Icon size={15} />
-            <span>{label === "Player props" ? "Props" : label === "Game picks" ? "Picks" : label === "Game lines" ? "Lines" : label === "Team form" ? "Teams" : label === "NFL News" ? "News" : "Home"}</span>
+            <span>{label === "Player props" ? "Props" : label === "Game picks" ? "Picks" : label === "Game lines" ? "Lines" : label === "Team form" ? "Teams" : label === "History" ? "History" : label === "NFL News" ? "News" : "Home"}</span>
           </button>
         ))}
       </nav>

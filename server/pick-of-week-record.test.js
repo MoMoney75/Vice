@@ -129,10 +129,10 @@ test("summarizes wins, losses, pushes, pending picks, and history", () => {
     pushes: 1,
     pending: 1,
     history: [
-      { season: 2026, week: 6, game: "Away at Home", selection: "Home -3", market: "Spread", result: "win", score: "20-24" },
-      { season: 2026, week: 7, game: "Away at Home", selection: "Home -3", market: "Spread", result: "loss", score: "21-17" },
-      { season: 2026, week: 8, game: "Away at Home", selection: "Home -3", market: "Spread", result: "push", score: "17-20" },
-      { season: 2026, week: 9, game: "Away at Home", selection: "Home -3", market: "Spread", result: "pending", score: null },
+      { season: 2026, week: 6, game: "Away at Home", selection: "Home -3", market: "Spread", result: "win", score: "20-24", keyPlayers: [] },
+      { season: 2026, week: 7, game: "Away at Home", selection: "Home -3", market: "Spread", result: "loss", score: "21-17", keyPlayers: [] },
+      { season: 2026, week: 8, game: "Away at Home", selection: "Home -3", market: "Spread", result: "push", score: "17-20", keyPlayers: [] },
+      { season: 2026, week: 9, game: "Away at Home", selection: "Home -3", market: "Spread", result: "pending", score: null, keyPlayers: [] },
     ],
   });
 });
