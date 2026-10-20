@@ -1,6 +1,6 @@
 import express from "express";
 import { createHash } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
@@ -35,6 +35,7 @@ import {
   isTransientNetworkFailure,
   shouldRestoreFailure,
 } from "./cache-utils.js";
+import { selectScheduleWeek } from "./week-schedule.js";
 
 const envPath = path.resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
@@ -53,7 +54,12 @@ const root = path.dirname(fileURLToPath(import.meta.url));
 const cache = new Map();
 const failedFetches = new Map();
 const inFlightFetches = new Map();
-const cacheFile = path.resolve(root, "../.vice-cache.json");
+const cacheDirectory = path.resolve(
+  process.env.VISE_DATA_DIR || path.resolve(root, ".."),
+);
+mkdirSync(cacheDirectory, { recursive: true });
+const cacheFile = path.join(cacheDirectory, ".vice-cache.json");
+const legacyCacheFile = path.resolve(root, "../.vice-cache.json");
 const oddsApiKeyFingerprint = process.env.ODDS_API_KEY
   ? createHash("sha256").update(process.env.ODDS_API_KEY).digest("hex")
   : null;
@@ -112,9 +118,15 @@ function isPersistentCacheKey(key) {
     key.startsWith("smart-picks-");
 }
 
-if (existsSync(cacheFile)) {
+const cacheSourceFile = existsSync(cacheFile)
+  ? cacheFile
+  : legacyCacheFile !== cacheFile && existsSync(legacyCacheFile)
+    ? legacyCacheFile
+    : null;
+
+if (cacheSourceFile) {
   try {
-    const stored = JSON.parse(readFileSync(cacheFile, "utf8"));
+    const stored = JSON.parse(readFileSync(cacheSourceFile, "utf8"));
     const oddsApiKeyMatches = stored.oddsApiKeyFingerprint === oddsApiKeyFingerprint;
     for (const [key, value] of stored.entries ?? []) {
       if (
@@ -139,6 +151,10 @@ if (existsSync(cacheFile)) {
         : null;
     } else {
       console.log("Odds API key changed; discarding cached odds and quota state while retaining weekly pick locks.");
+    }
+    if (cacheSourceFile !== cacheFile) {
+      console.log(`Migrating Vise cache from ${cacheSourceFile} to ${cacheFile}.`);
+      void persistCache();
     }
   } catch (error) {
     console.error(`Unable to read local Vise cache: ${error.message}`);
@@ -479,9 +495,10 @@ app.get("/api/nfl/board", async (_request, response) => {
 
   let games = [];
   let currentWeekSchedule = [];
-  const week = currentScoreboard?.week?.number ?? null;
+  let week = currentScoreboard?.week?.number ?? null;
   if (currentScoreboard && week) {
-    const finalWeek = Math.min(week + 1, LAST_REGULAR_SEASON_WEEK);
+    const scoreboardWeek = week;
+    const finalWeek = Math.min(scoreboardWeek + 1, LAST_REGULAR_SEASON_WEEK);
     const weekResults = await Promise.allSettled(
       Array.from({ length: finalWeek }, (_, index) => index + 1).map((gameWeek) =>
         cachedFetch(
@@ -499,12 +516,22 @@ app.get("/api/nfl/board", async (_request, response) => {
       for (const event of result.value.events ?? []) allEvents.set(event.id, event);
     }
     for (const event of currentScoreboard.events ?? []) allEvents.set(event.id, event);
-    const weekData = weekResults[week - 1];
-    const weekEvents =
-      weekData?.status === "fulfilled"
-        ? weekData.value.events ?? []
+    const currentWeekData = weekResults[scoreboardWeek - 1];
+    const currentWeekEvents =
+      currentWeekData?.status === "fulfilled"
+        ? currentWeekData.value.events ?? []
         : currentScoreboard.events ?? [];
-    const scheduleIds = new Set(weekEvents.map((event) => event.id));
+    const nextWeekData = weekResults[scoreboardWeek];
+    const nextWeekEvents = nextWeekData?.status === "fulfilled"
+      ? nextWeekData.value.events ?? []
+      : [];
+    const selectedSchedule = selectScheduleWeek(
+      scoreboardWeek,
+      currentWeekEvents,
+      nextWeekEvents,
+    );
+    week = selectedSchedule.week;
+    const scheduleIds = new Set(selectedSchedule.events.map((event) => event.id));
     games = [...allEvents.values()].map(mapGame).filter(Boolean);
     currentWeekSchedule = games.filter((game) => scheduleIds.has(game.id));
   }

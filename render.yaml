@@ -10,3 +10,5 @@ services:
         value: production
       - key: ODDS_API_KEY
         sync: false
+      - key: VISE_DATA_DIR
+        value: /var/data

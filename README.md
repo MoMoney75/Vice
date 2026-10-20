@@ -31,9 +31,17 @@ persisted in the ignored local `.vice-cache.json`; the larger, non-costly ESPN
 responses stay in memory. Keep API keys in `.env`; do not commit them. Check
 your provider's current plan quota before enabling frequent full-slate refreshes.
 
+For Render, attach a persistent disk mounted at `/var/data`. The service
+Blueprint sets `VISE_DATA_DIR=/var/data`, so weekly pick locks and results are
+stored in `/var/data/.vice-cache.json` and survive redeploys. If the legacy
+project-root cache exists when the service first starts with the disk attached,
+Vise migrates it to the disk.
+
 The board keeps every game from the current ESPN NFL week visible, including
-completed games and final scores, until ESPN advances to the next week. Live
-odds, player props, and parlay building remain limited to not-yet-started games.
+completed games and final scores. Once all current-week games are final, it
+advances to the next week's schedule instead of waiting for ESPN's default
+scoreboard week to roll forward. Live odds, player props, and parlay building
+remain limited to not-yet-started games.
 The smart-bet screen compares the best available book
 price with the average no-vig probability from paired sportsbook markets. Its
 expected-return figure is market-derived, not an independent prediction.
