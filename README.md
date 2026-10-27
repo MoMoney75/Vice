@@ -1,9 +1,11 @@
-# Vise — NFL Market Desk
+# Vise — Sports Market Desk
 
-Vise is a small NFL research dashboard for comparing live US sportsbook prices and
-reviewing current-season team and player results. It is an informational tool,
-not a betting recommendation service. The dashboard includes spreads, moneylines,
-totals, anytime touchdown markets, and player passing/rushing/receiving props.
+Vise is a sports research dashboard for comparing live US sportsbook prices and
+reviewing current-season team and game results. It currently supports NFL and
+NBA game markets. NFL player props and touchdown parlays are also available;
+NBA includes the shared schedule, odds, team-form, ATS, injuries, news, picks,
+and history features, but not props or parlays.
+It is an informational tool, not a betting recommendation service.
 
 ## Run locally
 
@@ -14,11 +16,11 @@ totals, anytime touchdown markets, and player passing/rushing/receiving props.
    team trends still load.
 4. Run `npm run dev` and open the local Vite URL printed in the terminal.
 
-The API server uses ESPN's public NFL scoreboard, player statistics, injury
-report, event summaries, and NFL news feed. Closing spread lines from ESPN
+The API server uses ESPN's public NFL and NBA scoreboards, injury reports,
+event summaries, and news feeds. Closing spread lines from ESPN
 event summaries are used to calculate current-season home/away against-the-
 spread (ATS) records; games without a verified closing line are excluded.
-Browse the recent ESPN coverage in the NFL News view. It uses
+Browse recent ESPN coverage in each sport's News view. Vise uses
 [The Odds API](https://the-odds-api.com/) for US bookmaker prices. Game lines
 compare Hard Rock Bet, DraftKings, FanDuel, and Caesars when available; player
 props include every US bookmaker returned for the requested market. Game lines
@@ -30,6 +32,16 @@ feeds have their own cache intervals. Odds responses and quota state are
 persisted in the ignored local `.vice-cache.json`; the larger, non-costly ESPN
 responses stay in memory. Keep API keys in `.env`; do not commit them. Check
 your provider's current plan quota before enabling frequent full-slate refreshes.
+NBA uses the same Odds API key and subscription as NFL. It requests the same
+three game markets (moneyline, spread, total) for one region, so each odds
+refresh costs three credits from the same shared plan balance. Only the selected
+sport's game odds are requested; switching between leagues can still consume
+credits for each league as its cache expires. NBA player props and parlays are
+not currently enabled. NBA schedules use single-day ESPN scoreboard requests
+(the endpoint rejects date ranges); completed-game summaries supply player
+boxscore leaders and closing spreads. The Odds API event-list endpoint is used as a zero-quota upcoming-game
+fallback if ESPN's NBA schedule is unavailable; those fallback listings do not
+include final scores or full-season team results.
 
 For Render, attach a persistent disk mounted at `/var/data`. The service
 Blueprint sets `VISE_DATA_DIR=/var/data`, so weekly pick locks and results are
@@ -42,6 +54,8 @@ completed games and final scores. Once all current-week games are final, it
 advances to the next week's schedule instead of waiting for ESPN's default
 scoreboard week to roll forward. Live odds, player props, and parlay building
 remain limited to not-yet-started games.
+The NBA board uses the current calendar week and keeps completed results and
+key-player stats visible through the week.
 The smart-bet screen compares the best available book
 price with the average no-vig probability from paired sportsbook markets. Its
 expected-return figure is market-derived, not an independent prediction.
@@ -50,8 +64,8 @@ requires spread/total legs. Parlay hit-rate estimates multiply consensus
 probabilities for different games, and use leg prices from one sportsbook;
 they assume independence and are not guarantees.
 
-Pick of the Week is selected once per NFL week from spread and total lines
-priced by at least two sportsbooks. The highest no-vig market chance ranks
+Pick of the Week is selected once per NFL week or NBA calendar week from
+spread and total lines priced by at least two sportsbooks. The highest no-vig market chance ranks
 first; ties favor broader book coverage, then a stable game and market order.
 The selected matchup and side/line are persisted locally and stay fixed until
 the ESPN week changes, including across API restarts and Odds API key changes.
@@ -71,10 +85,10 @@ Spread picks are graded against the saved selection-side point; totals are
 graded against the saved over/under line. Wins, losses, pushes, pending picks,
 and week-by-week results are persisted in the local ignored cache file. The
 record does not change or retroactively reselect earlier picks. Smart game
-picks are also captured per game and week, retain their original selection,
+picks are also captured per game and period, retain their original selection,
 and are graded against final scores. The History view shows both pick types
-for the season, with final scores and available passing, rushing, and receiving
-leaders from ESPN box scores.
+for the season, with final scores and available NFL passing/rushing/receiving
+or NBA scoring/rebounding/assist leaders from ESPN box scores.
 
 Player-prop research supports anytime touchdowns, passing yards, rushing yards,
 receptions, and receiving yards. It compares player markets across at least two
@@ -120,6 +134,18 @@ Single-book props are shown as references, not consensus; when multiple books
 offer the same player and line, Vise compares them. Vise checks the available
 balance before cost-bearing requests and
 pauses sportsbook requests when there are not enough credits.
+
+## Adding another sport
+
+Provider identifiers, schedule mode, season-year rules, period boundaries, and
+feature availability live in `server/sport-registry.js`. The generic rolling
+schedule board uses the registry's ESPN path and Odds API sport key, while
+shared game mapping, team trends, market analysis, pick locking, settlement,
+and history live in the existing shared modules. League-specific features
+should be added as optional sport capabilities rather than added to the shared
+game-board flow. Add the sport to the registry and the front-end sport selector,
+then supply a sport-specific adapter only if its schedule or data differs from
+the supported weekly or rolling schedule patterns.
 
 ## Production build
 

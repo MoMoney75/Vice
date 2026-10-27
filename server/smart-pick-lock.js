@@ -17,6 +17,43 @@ export function resolveSmartPicks(analysis, savedPicks = [], selectedAt = new Da
   return [...picks.values()];
 }
 
+function selectedTeam(candidate) {
+  if (candidate.marketKey !== "spreads" && candidate.marketKey !== "h2h") {
+    return null;
+  }
+  if (
+    candidate.outcomeName === candidate.homeTeam ||
+    candidate.selection === candidate.homeTeam ||
+    candidate.selection.startsWith(`${candidate.homeTeam} `)
+  ) return candidate.homeTeam;
+  if (
+    candidate.outcomeName === candidate.awayTeam ||
+    candidate.selection === candidate.awayTeam ||
+    candidate.selection.startsWith(`${candidate.awayTeam} `)
+  ) return candidate.awayTeam;
+  return null;
+}
+
+export function alignSmartPicksWithPickOfWeek(picks, pickOfWeekCandidate) {
+  const featuredTeam = pickOfWeekCandidate
+    ? selectedTeam(pickOfWeekCandidate)
+    : null;
+  if (!featuredTeam) return picks;
+
+  return picks.map((pick) => {
+    const candidate = pick.candidate;
+    const smartTeam = selectedTeam(candidate);
+    if (
+      pick.result ||
+      candidate.eventId !== pickOfWeekCandidate.eventId ||
+      !smartTeam ||
+      smartTeam === featuredTeam
+    ) return pick;
+
+    return { ...pick, candidate: pickOfWeekCandidate };
+  });
+}
+
 export function settleSmartPick(pick, game, settledAt = new Date().toISOString()) {
   if (!pick?.candidate || !game?.completed) return pick;
   const homeScore = Number(game.home?.score);
@@ -77,10 +114,11 @@ export function settleSmartPick(pick, game, settledAt = new Date().toISOString()
 
 export function summarizeSmartPickRecord(weeks) {
   const history = weeks
-    .flatMap(({ season, week, picks }) =>
+    .flatMap(({ season, week, picks, periodLabel }) =>
       picks.map((pick) => ({
         season,
         week,
+        ...(periodLabel ? { periodLabel } : {}),
         game: pick.candidate.eventName,
         selection: pick.candidate.selection,
         market: pick.candidate.market,

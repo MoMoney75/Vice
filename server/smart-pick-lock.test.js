@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  alignSmartPicksWithPickOfWeek,
   resolveSmartPicks,
   settleSmartPick,
   summarizeSmartPickRecord,
@@ -30,6 +31,68 @@ test("saves a smart pick once and retains it across refreshed candidates", () =>
   assert.equal(refreshed.length, 1);
   assert.equal(refreshed[0].candidate.selection, "Home -3");
   assert.equal(refreshed[0].selectedAt, "2026-10-19T12:00:00Z");
+});
+
+test("aligns an opposing same-game smart pick with Pick of the Week", () => {
+  const smartPick = {
+    candidate: {
+      ...candidate,
+      eventId: "matchup-1",
+      marketKey: "h2h",
+      market: "Moneyline",
+      outcomeName: "Away",
+      selection: "Away to win",
+    },
+    selectedAt: "2026-10-19T12:00:00Z",
+  };
+  const featuredPick = {
+    ...candidate,
+    eventId: "matchup-1",
+    marketKey: "spreads",
+    market: "Spread",
+    outcomeName: "Home",
+    selection: "Home -4.5",
+    line: -4.5,
+  };
+
+  const [aligned] = alignSmartPicksWithPickOfWeek([smartPick], featuredPick);
+  assert.equal(aligned.candidate.selection, "Home -4.5");
+  assert.equal(aligned.candidate.marketKey, "spreads");
+  assert.equal(aligned.selectedAt, smartPick.selectedAt);
+});
+
+test("keeps compatible picks and does not alter settled smart-pick history", () => {
+  const featuredPick = {
+    ...candidate,
+    eventId: "matchup-1",
+    outcomeName: "Home",
+  };
+  const compatible = {
+    candidate: {
+      ...candidate,
+      eventId: "matchup-1",
+      marketKey: "totals",
+      outcomeName: "Over",
+      selection: "Over 44.5",
+    },
+  };
+  const settledOpposing = {
+    candidate: {
+      ...candidate,
+      eventId: "matchup-1",
+      marketKey: "h2h",
+      outcomeName: "Away",
+      selection: "Away to win",
+    },
+    result: { outcome: "loss" },
+  };
+
+  const aligned = alignSmartPicksWithPickOfWeek(
+    [compatible, settledOpposing],
+    featuredPick,
+  );
+  assert.equal(aligned[0], compatible);
+  assert.equal(aligned[1], settledOpposing);
 });
 
 test("settles smart picks and retains final key-player stats in history", () => {

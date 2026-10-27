@@ -85,3 +85,57 @@ export function buildKeyPlayers(game, summary) {
     stats: stats.join(" · "),
   }));
 }
+
+export function buildBasketballKeyPlayers(game, summary) {
+  const leadersByPlayer = new Map();
+  for (const teamBox of summary?.boxscore?.players ?? []) {
+    const group = teamBox.statistics?.[0];
+    if (!group) continue;
+    const indexes = new Map(
+      (group.labels ?? []).map((label, index) => [label.toUpperCase(), index]),
+    );
+    const teamId = teamBox.team?.id;
+    const teamName = teamId === game.home?.id
+      ? game.home.name
+      : teamId === game.away?.id
+        ? game.away.name
+        : teamBox.team?.displayName ?? teamBox.team?.name;
+
+    for (const [label, statName] of [
+      ["PTS", "PTS"],
+      ["REB", "REB"],
+      ["AST", "AST"],
+    ]) {
+      const index = indexes.get(label);
+      if (index === undefined) continue;
+      const leader = (group.athletes ?? [])
+        .map((item) => {
+          const rawValue = item.stats?.[index];
+          return {
+            athlete: item.athlete,
+            value: rawValue === null || rawValue === undefined || rawValue === ""
+              ? Number.NaN
+              : Number(String(rawValue).replace(/,/g, "")),
+          };
+        })
+        .filter((item) => item.athlete?.displayName && Number.isFinite(item.value))
+        .sort((a, b) => b.value - a.value)[0];
+      if (!leader) continue;
+
+      const key = `${teamName}:${leader.athlete.displayName}`;
+      const player = leadersByPlayer.get(key) ?? {
+        name: leader.athlete.displayName,
+        team: teamName,
+        stats: [],
+      };
+      player.stats.push(`${statName} ${leader.value}`);
+      leadersByPlayer.set(key, player);
+    }
+  }
+
+  return [...leadersByPlayer.values()].map(({ name, team, stats }) => ({
+    name,
+    team,
+    stats: stats.join(" · "),
+  }));
+}

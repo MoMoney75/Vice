@@ -15,10 +15,14 @@ import {
   buildAnytimeTouchdownParlays,
   PROP_MARKETS,
 } from "./player-props.js";
-import { mapNflNews } from "./nfl-news.js";
+import { mapLeagueNews, mapNflNews } from "./nfl-news.js";
 import { buildAgainstTheSpreadRecords } from "./against-the-spread.js";
 import { buildDefensivePropStats } from "./defensive-prop-stats.js";
-import { buildKeyPlayers } from "./game-results.js";
+import {
+  buildBasketballKeyPlayers,
+  buildKeyPlayers,
+} from "./game-results.js";
+import { findGameForPick } from "./pick-game-match.js";
 import { filterToSupportedSportsbooks } from "./sportsbook-filter.js";
 import {
   resolvePickOfWeekLock,
@@ -26,6 +30,7 @@ import {
   summarizePickOfWeekRecord,
 } from "./pick-of-week-lock.js";
 import {
+  alignSmartPicksWithPickOfWeek,
   resolveSmartPicks,
   settleSmartPick,
   summarizeSmartPickRecord,
@@ -33,9 +38,17 @@ import {
 import {
   describeOddsQuotaFailure,
   isTransientNetworkFailure,
+  oddsRequestCreditCost,
   shouldRestoreFailure,
 } from "./cache-utils.js";
 import { selectScheduleWeek } from "./week-schedule.js";
+import { currentSeasonYear, getSport, getSportPeriod } from "./sport-registry.js";
+import {
+  makeSportTeamTrends,
+  mapOddsScheduleGame,
+  mapSportGame,
+} from "./sports-data.js";
+import { buildDailyScoreboardRequests } from "./sport-schedule.js";
 
 const envPath = path.resolve(process.cwd(), ".env");
 if (existsSync(envPath)) {
@@ -84,18 +97,11 @@ const ESPN_EVENT_SUMMARY =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary";
 const ESPN_TEAM_URL =
   "https://site.api.espn.com/apis/site/v2/sports/football/nfl/teams";
-const ODDS_URL =
-  "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/odds";
+const ODDS_URL = "https://api.the-odds-api.com/v4/sports";
 const ODDS_SPORTS_URL = "https://api.the-odds-api.com/v4/sports";
 const ODDS_EVENT_URL =
   "https://api.the-odds-api.com/v4/sports/americanfootball_nfl/events";
 const PLAYER_PROP_MARKETS = Object.keys(PROP_MARKETS).join(",");
-const NFL_TEAM_ABBREVIATIONS = new Set([
-  "ARI", "ATL", "BAL", "BUF", "CAR", "CHI", "CIN", "CLE",
-  "DAL", "DEN", "DET", "GB", "HOU", "IND", "JAX", "KC",
-  "LAC", "LAR", "LV", "MIA", "MIN", "NE", "NO", "NYG",
-  "NYJ", "PHI", "PIT", "SEA", "SF", "TB", "TEN", "WAS", "WSH",
-]);
 const LAST_REGULAR_SEASON_WEEK = 18;
 const INJURY_PRIORITY = {
   Out: 0,
@@ -113,9 +119,12 @@ let cacheWriteTimer = null;
 function isPersistentCacheKey(key) {
   return key === "odds-quota" ||
     key === "odds" ||
+    key.startsWith("odds-") ||
     key.startsWith("player-props-") ||
     key.startsWith("pick-of-week-") ||
-    key.startsWith("smart-picks-");
+    key.startsWith("smart-picks-") ||
+    key.startsWith("nba-pick-of-week-") ||
+    key.startsWith("nba-smart-picks-");
 }
 
 const cacheSourceFile = existsSync(cacheFile)
@@ -180,11 +189,6 @@ function persistCache() {
   return cacheWrite;
 }
 
-function currentSeasonYear() {
-  const now = new Date();
-  return now.getMonth() < 2 ? now.getFullYear() - 1 : now.getFullYear();
-}
-
 function canonicalPlayerName(name) {
   return name?.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]/g, "");
 }
@@ -204,11 +208,7 @@ async function cachedFetch(key, url, headers = {}, ttlMs = CACHE_TTL_MS) {
   if (pending) return pending;
 
   const requestUrl = new URL(url);
-  const isOddsApi = requestUrl.hostname === "api.the-odds-api.com";
-  const isSportsList = /^\/v4\/sports\/?$/.test(requestUrl.pathname);
-  const marketCount = (requestUrl.searchParams.get("markets") ?? "h2h").split(",").length;
-  const regionCount = (requestUrl.searchParams.get("regions") ?? "us").split(",").length;
-  const expectedCredits = isOddsApi && !isSportsList ? marketCount * regionCount : 0;
+  const expectedCredits = oddsRequestCreditCost(requestUrl);
   const request = (async () => {
     if (
       expectedCredits &&
@@ -226,7 +226,7 @@ async function cachedFetch(key, url, headers = {}, ttlMs = CACHE_TTL_MS) {
       const remainingHeader = response.headers.get("x-requests-remaining");
       const remaining = remainingHeader === null ? null : Number(remainingHeader);
       if (Number.isFinite(remaining)) {
-        oddsCreditsRemaining = isSportsList || oddsCreditsRemaining === null
+        oddsCreditsRemaining = expectedCredits === 0 || oddsCreditsRemaining === null
           ? remaining
           : Math.min(oddsCreditsRemaining, remaining);
       }
@@ -270,94 +270,6 @@ async function cachedFetch(key, url, headers = {}, ttlMs = CACHE_TTL_MS) {
   } finally {
     inFlightFetches.delete(key);
   }
-}
-
-function getTeam(competitors, homeAway) {
-  const competitor = competitors.find((item) => item.homeAway === homeAway);
-  return competitor
-    ? {
-        id: competitor.team.id,
-        name: competitor.team.displayName,
-        abbreviation: competitor.team.abbreviation,
-        score: competitor.score ?? null,
-      }
-    : null;
-}
-
-function mapGame(event) {
-  const competition = event.competitions?.[0];
-  if (!competition) return null;
-  const competitors = competition.competitors ?? [];
-  const status = competition.status ?? event.status;
-  return {
-    id: event.id,
-    name: event.name,
-    date: event.date,
-    status: status?.type?.shortDetail ?? status?.type?.detail ?? "Scheduled",
-    completed: Boolean(status?.type?.completed),
-    home: getTeam(competitors, "home"),
-    away: getTeam(competitors, "away"),
-  };
-}
-
-function makeTeamTrends(games) {
-  const records = new Map();
-  for (const game of games) {
-    if (
-      !game.completed ||
-      !game.home ||
-      !game.away ||
-      !NFL_TEAM_ABBREVIATIONS.has(game.home.abbreviation) ||
-      !NFL_TEAM_ABBREVIATIONS.has(game.away.abbreviation)
-    ) continue;
-    const homeScore = Number(game.home.score);
-    const awayScore = Number(game.away.score);
-    if (!Number.isFinite(homeScore) || !Number.isFinite(awayScore)) continue;
-
-    for (const [team, opponent, scored, allowed] of [
-      [game.home, game.away, homeScore, awayScore],
-      [game.away, game.home, awayScore, homeScore],
-    ]) {
-      const stats = records.get(team.id) ?? {
-        id: team.id,
-        name: team.name,
-        abbreviation: team.abbreviation,
-        wins: 0,
-        losses: 0,
-        ties: 0,
-        pointsFor: 0,
-        pointsAgainst: 0,
-        recent: [],
-      };
-      const result = scored > allowed ? "W" : scored < allowed ? "L" : "T";
-      if (result === "W") stats.wins += 1;
-      else if (result === "L") stats.losses += 1;
-      else stats.ties += 1;
-      stats.pointsFor += scored;
-      stats.pointsAgainst += allowed;
-      stats.recent.push({
-        date: game.date,
-        result,
-        pointsFor: scored,
-        pointsAgainst: allowed,
-        opponent: opponent.name,
-      });
-      records.set(team.id, stats);
-    }
-
-  }
-
-  return [...records.values()].map((team) => {
-    const recentGames = team.recent
-      .sort((a, b) => new Date(b.date) - new Date(a.date))
-      .slice(0, 5);
-    return {
-      ...team,
-      pointDifferential: team.pointsFor - team.pointsAgainst,
-      recent: recentGames.map(({ result }) => result),
-      recentGames,
-    };
-  });
 }
 
 async function mapConcurrent(items, concurrency, callback) {
@@ -428,7 +340,7 @@ function mapInjuryReport(report) {
 }
 
 app.get("/api/nfl/board", async (_request, response) => {
-  const season = currentSeasonYear();
+  const season = currentSeasonYear("nfl");
   let oddsQuotaReady = false;
   let oddsQuotaError = false;
   let oddsQuotaResult;
@@ -450,7 +362,7 @@ app.get("/api/nfl/board", async (_request, response) => {
     process.env.ODDS_API_KEY && oddsQuotaReady && oddsCreditsRemaining >= 3
       ? cachedFetch(
           "odds",
-          `${ODDS_URL}?regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso&apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
+          `${ODDS_URL}/${getSport("nfl").oddsApiKey}/odds?regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso&apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
           {},
           ODDS_CACHE_TTL_MS,
         )
@@ -532,7 +444,7 @@ app.get("/api/nfl/board", async (_request, response) => {
     );
     week = selectedSchedule.week;
     const scheduleIds = new Set(selectedSchedule.events.map((event) => event.id));
-    games = [...allEvents.values()].map(mapGame).filter(Boolean);
+    games = [...allEvents.values()].map(mapSportGame).filter(Boolean);
     currentWeekSchedule = games.filter((game) => scheduleIds.has(game.id));
   }
 
@@ -594,7 +506,7 @@ app.get("/api/nfl/board", async (_request, response) => {
     if (!key.startsWith("pick-of-week-") || !entry.value?.candidate) continue;
     const settled = settlePickOfWeekLock(
       entry.value,
-      completedGames.get(entry.value.candidate.eventId),
+      findGameForPick(entry.value.candidate, completedGames.values()),
     );
     if (settled !== entry.value) {
       cache.set(key, { ...entry, value: settled });
@@ -603,7 +515,7 @@ app.get("/api/nfl/board", async (_request, response) => {
   }
   if (settledPickChanged) void persistCache();
 
-  const trends = makeTeamTrends(games).map((team) => ({
+  const trends = makeSportTeamTrends(games).map((team) => ({
     ...team,
     homeAts: atsRecords.get(team.id)?.home ?? null,
     awayAts: atsRecords.get(team.id)?.away ?? null,
@@ -621,23 +533,44 @@ app.get("/api/nfl/board", async (_request, response) => {
     filterOddsToGames(fullOdds, upcoming),
   );
   const analysis = analyzeOdds(odds, { trends, injuryReport, news });
+  const pickLockKey = week ? `pick-of-week-${season}-${week}` : null;
+  const savedPickLock = pickLockKey ? cache.get(pickLockKey)?.value : null;
+  const pickLock = week
+    ? resolvePickOfWeekLock(analysis, savedPickLock)
+    : null;
+  if (pickLock && pickLockKey && !savedPickLock) {
+    cache.set(pickLockKey, {
+      value: {
+        candidate: pickLock.candidate,
+        selectedAt: pickLock.selectedAt,
+      },
+      savedAt: Date.now(),
+    });
+    void persistCache();
+  }
   const smartPickKey = week ? `smart-picks-${season}-${week}` : null;
   const savedSmartPicks = smartPickKey
     ? cache.get(smartPickKey)?.value?.picks ?? []
     : [];
-  let smartPicks = resolveSmartPicks(analysis, savedSmartPicks);
-  let smartPicksChanged = smartPicks.length !== savedSmartPicks.length;
+  const resolvedSmartPicks = resolveSmartPicks(analysis, savedSmartPicks);
+  let smartPicks = alignSmartPicksWithPickOfWeek(
+    resolvedSmartPicks,
+    pickLock?.candidate,
+  );
+  let smartPicksChanged =
+    smartPicks.length !== savedSmartPicks.length ||
+    smartPicks.some((pick, index) => pick !== resolvedSmartPicks[index]);
   smartPicks = smartPicks.map((pick) => {
     const settled = settleSmartPick(
       pick,
-      completedGames.get(pick.candidate.eventId),
+      findGameForPick(pick.candidate, completedGames.values()),
     );
     if (settled !== pick) smartPicksChanged = true;
     return settled;
   });
   if (smartPickKey && smartPicksChanged) {
     cache.set(smartPickKey, {
-      value: { picks: smartPicks },
+      value: { picks: smartPicks, periodLabel: period.label },
       savedAt: Date.now(),
     });
     void persistCache();
@@ -782,21 +715,6 @@ app.get("/api/nfl/board", async (_request, response) => {
     0,
     ...odds.map((event) => cache.get(`player-props-${event.id}`)?.savedAt ?? 0),
   );
-  const pickLockKey = week ? `pick-of-week-${season}-${week}` : null;
-  const savedPickLock = pickLockKey ? cache.get(pickLockKey)?.value : null;
-  const pickLock = week
-    ? resolvePickOfWeekLock(analysis, savedPickLock)
-    : null;
-  if (pickLock && pickLockKey && !savedPickLock) {
-    cache.set(pickLockKey, {
-      value: {
-        candidate: pickLock.candidate,
-        selectedAt: pickLock.selectedAt,
-      },
-      savedAt: Date.now(),
-    });
-    void persistCache();
-  }
   const pickOfWeekRecord = summarizePickOfWeekRecord(
     [...cache.entries()].flatMap(([key, entry]) => {
       const match = /^pick-of-week-(\d+)-(\d+)$/.exec(key);
@@ -820,6 +738,9 @@ app.get("/api/nfl/board", async (_request, response) => {
     priceUpdated: pickLock?.priceUpdated ?? false,
   });
   response.json({
+    sport: "nfl",
+    sportLabel: getSport("nfl").label,
+    features: getSport("nfl").features,
     season,
     week,
     games: currentWeekSchedule.map((game) => ({
@@ -850,6 +771,383 @@ app.get("/api/nfl/board", async (_request, response) => {
     oddsConfigured: Boolean(process.env.ODDS_API_KEY),
     oddsUpdatedAt: cache.get("odds")?.savedAt
       ? new Date(cache.get("odds").savedAt).toISOString()
+      : null,
+    updatedAt: new Date().toISOString(),
+    errors,
+  });
+});
+
+app.get("/api/:sport/board", async (request, response) => {
+  const sport = getSport(request.params.sport);
+  if (!sport || sport.scheduleType !== "rolling") {
+    return response.status(404).json({ error: "Unsupported sport board." });
+  }
+
+  const errors = [];
+  const now = new Date();
+  const season = currentSeasonYear(sport.id, now);
+  const period = getSportPeriod(now, sport.id);
+  const periodStart = new Date(now);
+  periodStart.setHours(0, 0, 0, 0);
+  periodStart.setDate(now.getDate() - now.getDay());
+  const periodEnd = new Date(periodStart);
+  periodEnd.setDate(periodStart.getDate() + 6);
+  const seasonStart = new Date(Date.UTC(season, sport.periodStartMonth, 1));
+  const scoreboardRequests = buildDailyScoreboardRequests({
+    espnPath: sport.espnPath,
+    seasonStart,
+    periodEnd,
+    now,
+  });
+  const espnBaseUrl = `https://site.api.espn.com/apis/site/v2/sports/${sport.espnPath}`;
+
+  let oddsQuotaReady = false;
+  let oddsQuotaError = false;
+  let oddsQuotaResult;
+  if (process.env.ODDS_API_KEY) {
+    [oddsQuotaResult] = await Promise.allSettled([
+      cachedFetch(
+        "odds-quota",
+        `${ODDS_SPORTS_URL}?apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
+        {},
+        ODDS_QUOTA_CACHE_TTL_MS,
+      ),
+    ]);
+    oddsQuotaReady =
+      oddsQuotaResult.status === "fulfilled" && Number.isFinite(oddsCreditsRemaining);
+    oddsQuotaError = oddsQuotaResult.status === "rejected";
+  }
+
+  const oddsCacheKey = `odds-${sport.id}`;
+  const oddsRequest = process.env.ODDS_API_KEY && oddsQuotaReady && oddsCreditsRemaining >= 3
+    ? cachedFetch(
+        oddsCacheKey,
+        `${ODDS_URL}/${sport.oddsApiKey}/odds?regions=us&markets=h2h,spreads,totals&oddsFormat=american&dateFormat=iso&apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
+        {},
+        ODDS_CACHE_TTL_MS,
+      )
+    : Promise.resolve(null);
+  const eventScheduleRequest = process.env.ODDS_API_KEY
+    ? cachedFetch(
+        `events-${sport.id}`,
+        `${ODDS_URL}/${sport.oddsApiKey}/events?dateFormat=iso&apiKey=${encodeURIComponent(process.env.ODDS_API_KEY)}`,
+        {},
+        ODDS_CACHE_TTL_MS,
+      )
+    : Promise.resolve(null);
+  const [scoreboardResults, oddsResult, eventScheduleResult, injuryResult, newsResult] = await Promise.all([
+    mapConcurrent(scoreboardRequests, 6, ({ key, url, ttlMs }) =>
+      cachedFetch(
+        `scoreboard-${sport.id}-${season}-${key}`,
+        url,
+        {},
+        ttlMs,
+      )),
+    oddsRequest.then(
+      (value) => ({ status: "fulfilled", value }),
+      (reason) => ({ status: "rejected", reason }),
+    ),
+    eventScheduleRequest.then(
+      (value) => ({ status: "fulfilled", value }),
+      (reason) => ({ status: "rejected", reason }),
+    ),
+    cachedFetch(
+      `injuries-${sport.id}`,
+      `${espnBaseUrl}/injuries`,
+      {},
+      INJURY_CACHE_TTL_MS,
+    ).then(
+      (value) => ({ status: "fulfilled", value }),
+      (reason) => ({ status: "rejected", reason }),
+    ),
+    cachedFetch(
+      `news-${sport.id}`,
+      `${espnBaseUrl}/news?limit=30`,
+      {},
+      NEWS_CACHE_TTL_MS,
+    ).then(
+      (value) => ({ status: "fulfilled", value }),
+      (reason) => ({ status: "rejected", reason }),
+    ),
+  ]);
+
+  if (oddsQuotaError || (process.env.ODDS_API_KEY && !oddsQuotaReady)) {
+    errors.push(describeOddsQuotaFailure(oddsQuotaResult, process.env.ODDS_API_KEY));
+  } else if (process.env.ODDS_API_KEY && oddsCreditsRemaining < 3) {
+    errors.push(`The Odds API balance is ${oddsCreditsRemaining} credits; at least 3 are needed for current game lines.`);
+  }
+  const availableScoreboardEvents = new Map();
+  let failedScoreboardDates = 0;
+  scoreboardResults.forEach((result, index) => {
+    if (result.status === "rejected") {
+      failedScoreboardDates += 1;
+      console.error(`Unable to load ${sport.label} scoreboard for ${scoreboardRequests[index].key}: ${result.reason.message}`);
+      return;
+    }
+    for (const event of result.value.events ?? []) {
+      availableScoreboardEvents.set(event.id, event);
+    }
+  });
+  if (oddsResult.status === "rejected" && oddsQuotaReady) {
+    errors.push("Live sportsbook odds are temporarily unavailable.");
+  }
+
+  const oddsEvents = oddsResult.status === "fulfilled"
+    ? oddsResult.value ?? []
+    : [];
+  const scheduleEvents = eventScheduleResult.status === "fulfilled" &&
+    eventScheduleResult.value?.length
+    ? eventScheduleResult.value
+    : oddsEvents;
+  const supportedTeamIds = sport.teamIds ? new Set(sport.teamIds) : null;
+  const allGames = [...availableScoreboardEvents.values()]
+    .map(mapSportGame)
+    .filter((game) =>
+      game &&
+      (!supportedTeamIds ||
+        (supportedTeamIds.has(String(game.home?.id)) &&
+          supportedTeamIds.has(String(game.away?.id)))),
+    );
+  const startTime = periodStart.getTime();
+  const endTime = new Date(periodEnd.getTime() + 24 * 60 * 60 * 1000).getTime();
+  const hasCurrentScoreboardGames = allGames.some((game) => {
+    const date = new Date(game.date).getTime();
+    return date >= startTime && date < endTime;
+  });
+  const existingMatchups = new Set(allGames.map((game) =>
+    `${canonicalTeamName(game.home?.name)}:${canonicalTeamName(game.away?.name)}`,
+  ));
+  const fallbackGames = scheduleEvents
+    .map(mapOddsScheduleGame)
+    .filter((game) => game && new Date(game.date).getTime() >= startTime &&
+      new Date(game.date).getTime() < endTime)
+    .filter((game) => {
+      const key = `${canonicalTeamName(game.home.name)}:${canonicalTeamName(game.away.name)}`;
+      if (existingMatchups.has(key)) return false;
+      existingMatchups.add(key);
+      return true;
+    });
+  if (fallbackGames.length) {
+    allGames.push(...fallbackGames);
+    errors.push(`ESPN ${sport.label} schedule is incomplete; ${fallbackGames.length} upcoming game${fallbackGames.length === 1 ? " was" : "s were"} added from sportsbook fixtures. Results and stats still require ESPN.`);
+  } else if (!hasCurrentScoreboardGames && failedScoreboardDates) {
+    errors.push(`${sport.label} schedule and results are temporarily unavailable.`);
+  }
+  if (failedScoreboardDates && !fallbackGames.length) {
+    errors.push(`${failedScoreboardDates} ESPN ${sport.label} game-date request${failedScoreboardDates === 1 ? " failed" : "s failed"}; some season records may be incomplete.`);
+  }
+  if (injuryResult.status === "rejected") {
+    errors.push(`ESPN ${sport.label} injury reports are temporarily unavailable.`);
+  }
+  if (newsResult.status === "rejected") {
+    errors.push(`ESPN ${sport.label} news is temporarily unavailable.`);
+  }
+  const injuryReport = injuryResult.status === "fulfilled"
+    ? mapInjuryReport(injuryResult.value)
+    : null;
+  const news = newsResult.status === "fulfilled"
+    ? mapLeagueNews(newsResult.value)
+    : [];
+  const games = allGames.filter((game) => {
+    const date = new Date(game.date).getTime();
+    return date >= startTime && date < endTime;
+  });
+  const seasonGames = allGames.filter((game) => {
+    const date = new Date(game.date).getTime();
+    return date >= seasonStart.getTime() && date < endTime;
+  });
+  const completedGames = new Map(
+    seasonGames
+      .filter((game) => game.completed)
+      .map((game) => [game.id, game]),
+  );
+  const completedSeasonGames = seasonGames.filter((game) => game.completed);
+  const summaryResults = await mapConcurrent(
+    completedSeasonGames,
+    6,
+    (game) =>
+      cachedFetch(
+        `summary-${sport.id}-${season}-${game.id}`,
+        `${espnBaseUrl}/summary?event=${encodeURIComponent(game.id)}`,
+        {},
+        ATS_CACHE_TTL_MS,
+      ),
+  );
+  const summaries = new Map();
+  let failedSummaryCount = 0;
+  summaryResults.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      summaries.set(completedSeasonGames[index].id, result.value);
+    } else {
+      failedSummaryCount += 1;
+    }
+  });
+  if (failedSummaryCount) {
+    errors.push(`ESPN ${sport.label} game details are unavailable for ${failedSummaryCount} completed game${failedSummaryCount === 1 ? "" : "s"}; player stats and closing-line ATS records may be incomplete.`);
+  }
+  const atsRecords = buildAgainstTheSpreadRecords(completedSeasonGames, summaries);
+  const keyPlayersByGame = new Map(
+    completedSeasonGames.map((game) => [
+      game.id,
+      buildBasketballKeyPlayers(game, summaries.get(game.id)),
+    ]),
+  );
+  for (const [id, game] of completedGames) {
+    completedGames.set(id, {
+      ...game,
+      keyPlayers: keyPlayersByGame.get(id) ?? [],
+    });
+  }
+  const trends = makeSportTeamTrends(seasonGames).map((team) => ({
+    ...team,
+    homeAts: atsRecords.get(team.id)?.home ?? null,
+    awayAts: atsRecords.get(team.id)?.away ?? null,
+  }));
+
+  let settledPickChanged = false;
+  for (const [key, entry] of cache) {
+    if (!key.startsWith(`pick-of-week-${sport.id}-`) || !entry.value?.candidate) continue;
+    const settled = settlePickOfWeekLock(
+      entry.value,
+      findGameForPick(entry.value.candidate, completedGames.values()),
+    );
+    if (settled !== entry.value) {
+      cache.set(key, { ...entry, value: settled });
+      settledPickChanged = true;
+    }
+  }
+  if (settledPickChanged) void persistCache();
+
+  const upcoming = games
+    .filter((game) => !game.completed && new Date(game.date).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.date) - new Date(b.date));
+  const odds = filterToSupportedSportsbooks(
+    filterOddsToGames(oddsEvents, upcoming),
+  );
+  const analysis = analyzeOdds(odds, {
+    trends,
+    injuryReport,
+    news,
+    sportLabel: sport.label,
+  });
+  const week = Number(period.key);
+  const pickLockKey = `pick-of-week-${sport.id}-${season}-${week}`;
+  const savedPickLock = cache.get(pickLockKey)?.value ?? null;
+  const pickLock = resolvePickOfWeekLock(analysis, savedPickLock);
+  if (pickLock && !savedPickLock) {
+    cache.set(pickLockKey, {
+      value: {
+        candidate: pickLock.candidate,
+        selectedAt: pickLock.selectedAt,
+        periodLabel: period.label,
+      },
+      savedAt: Date.now(),
+    });
+    void persistCache();
+  }
+
+  const smartPickKey = `smart-picks-${sport.id}-${season}-${week}`;
+  const savedSmartPicks = cache.get(smartPickKey)?.value?.picks ?? [];
+  const resolvedSmartPicks = resolveSmartPicks(analysis, savedSmartPicks);
+  let smartPicks = alignSmartPicksWithPickOfWeek(
+    resolvedSmartPicks,
+    pickLock?.candidate,
+  );
+  let smartPicksChanged =
+    smartPicks.length !== savedSmartPicks.length ||
+    smartPicks.some((pick, index) => pick !== resolvedSmartPicks[index]);
+  smartPicks = smartPicks.map((pick) => {
+    const settled = settleSmartPick(
+      pick,
+      findGameForPick(pick.candidate, completedGames.values()),
+    );
+    if (settled !== pick) smartPicksChanged = true;
+    return settled;
+  });
+  if (smartPicksChanged) {
+    cache.set(smartPickKey, {
+      value: { picks: smartPicks, periodLabel: period.label },
+      savedAt: Date.now(),
+    });
+    void persistCache();
+  }
+
+  const pickOfWeekRecord = summarizePickOfWeekRecord(
+    [...cache.entries()].flatMap(([key, entry]) => {
+      const match = new RegExp(`^pick-of-week-${sport.id}-(\\d+)-(\\d+)$`).exec(key);
+      return match && entry.value?.candidate
+        ? [{
+            season: Number(match[1]),
+            week: Number(match[2]),
+            periodLabel: entry.value.periodLabel,
+            lock: entry.value,
+          }]
+        : [];
+    }),
+  );
+  const smartPickRecord = summarizeSmartPickRecord(
+    [...cache.entries()].flatMap(([key, entry]) => {
+      const match = new RegExp(`^smart-picks-${sport.id}-(\\d+)-(\\d+)$`).exec(key);
+      return match && Array.isArray(entry.value?.picks)
+        ? [{
+            season: Number(match[1]),
+            week: Number(match[2]),
+            periodLabel: entry.value.periodLabel,
+            picks: entry.value.picks,
+          }]
+        : [];
+    }),
+  );
+  const pickOfWeek = buildPickOfWeek({
+    analysis,
+    trends,
+    injuryReport,
+    week,
+    periodLabel: period.label,
+    news,
+    candidate: pickLock?.candidate ?? null,
+    selectedAt: pickLock?.selectedAt ?? null,
+    priceUpdated: pickLock?.priceUpdated ?? false,
+    sportLabel: sport.label,
+    features: sport.features,
+  });
+  response.json({
+    sport: sport.id,
+    sportLabel: sport.label,
+    features: sport.features,
+    season,
+    week,
+    periodLabel: period.label,
+    games: games.map((game) => ({
+      ...game,
+      keyPlayers: keyPlayersByGame.get(game.id) ?? [],
+    })),
+    trends,
+    odds,
+    analysis,
+    playerProps: [],
+    anytimeTouchdownParlays: [],
+    pickOfWeek,
+    pickOfWeekRecord,
+    smartPicks,
+    smartPickRecord,
+    news,
+    newsUpdatedAt: cache.get(`news-${sport.id}`)?.savedAt
+      ? new Date(cache.get(`news-${sport.id}`).savedAt).toISOString()
+      : null,
+    atsGamesAvailable: Math.round(
+      [...atsRecords.values()].reduce(
+        (count, record) =>
+          count +
+          record.home.wins + record.home.losses + record.home.pushes +
+          record.away.wins + record.away.losses + record.away.pushes,
+        0,
+      ) / 2,
+    ),
+    injuryReportUpdatedAt: injuryReport?.updatedAt ?? null,
+    oddsConfigured: Boolean(process.env.ODDS_API_KEY),
+    oddsUpdatedAt: cache.get(oddsCacheKey)?.savedAt
+      ? new Date(cache.get(oddsCacheKey).savedAt).toISOString()
       : null,
     updatedAt: new Date().toISOString(),
     errors,

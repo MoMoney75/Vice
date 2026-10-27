@@ -6,7 +6,7 @@ function canonical(value) {
     .replace(/[^a-z0-9]/g, "") ?? "";
 }
 
-export function mapNflNews(response) {
+export function mapLeagueNews(response) {
   return (response?.articles ?? [])
     .filter((article) => article.headline || article.title)
     .map((article) => ({
@@ -20,6 +20,8 @@ export function mapNflNews(response) {
         .filter(Boolean),
     }));
 }
+
+export const mapNflNews = mapLeagueNews;
 
 export function findRelevantNews(news, teamNames = [], playerNames = [], limit = 2) {
   const teams = teamNames.filter(Boolean).map(canonical);

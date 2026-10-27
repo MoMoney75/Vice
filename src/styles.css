@@ -93,6 +93,9 @@ button { color: inherit; }
 .breadcrumb { color: #89938b; font: 9px var(--mono); letter-spacing: .1em; }
 .breadcrumb span { padding: 0 8px; color: #505a52; }
 .topbar-right { display: flex; align-items: center; gap: 16px; }
+.sport-switch { display: flex; gap: 3px; padding: 3px; border: 1px solid #29332a; border-radius: 4px; background: #111713; }
+.sport-switch button { padding: 5px 8px; border: 0; border-radius: 3px; background: transparent; color: #89938a; font: 9px var(--mono); cursor: pointer; }
+.sport-switch button.selected { background: #293529; color: var(--green); }
 .season-pill, .live-pill { font: 8px var(--mono); letter-spacing: .08em; color: #949d95; }
 .season-pill { padding: 7px 8px; border: 1px solid #29332a; border-radius: 3px; }
 .live-pill { display: flex; align-items: center; gap: 7px; }
@@ -253,6 +256,11 @@ button { color: inherit; }
 .pick-record-history > p { margin: 8px 0; color: #929d91; line-height: 1.5; }
 .pick-record-caveat { margin: 10px 0 0; line-height: 1.5; }
 .history-section { margin-top: 28px; }
+.history-record-groups { display: grid; gap: 14px; }
+.history-record-group { min-width: 0; padding: 14px; border: 1px solid #29342b; border-radius: 4px; background: #111713; }
+.history-group-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.history-group-heading h3 { margin: 0; color: #dce5dc; font: 600 13px "Space Grotesk", sans-serif; }
+.history-group-heading > span { color: #7e897e; font: 8px var(--mono); }
 .history-record-stats { margin: 0 0 14px; }
 .history-week-list { display: grid; gap: 10px; }
 .history-week { padding: 14px; border: 1px solid #29342b; border-radius: 4px; background: #111713; }

@@ -90,6 +90,7 @@ export function settlePickOfWeekLock(savedLock, game, settledAt = new Date().toI
       outcome: margin > 0 ? "win" : margin < 0 ? "loss" : "push",
       homeScore,
       awayScore,
+      keyPlayers: game.keyPlayers ?? [],
       settledAt,
     },
   };
@@ -99,9 +100,10 @@ export function summarizePickOfWeekRecord(locks) {
   const history = locks
     .filter(({ lock }) => lock?.candidate)
     .sort((a, b) => a.season - b.season || a.week - b.week)
-    .map(({ season, week, lock }) => ({
+    .map(({ season, week, lock, periodLabel }) => ({
       season,
       week,
+      ...(periodLabel ? { periodLabel } : {}),
       game: lock.candidate.eventName,
       selection: lock.candidate.selection,
       market: lock.candidate.market,

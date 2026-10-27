@@ -1,6 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { resolvePickOfWeekLock } from "./pick-of-week-lock.js";
+import {
+  resolvePickOfWeekLock,
+  settlePickOfWeekLock,
+} from "./pick-of-week-lock.js";
 
 const firstPick = {
   eventId: "game-1",
@@ -94,4 +97,22 @@ test("breaks equal-probability ties deterministically", () => {
   );
 
   assert.equal(resolved.candidate.eventId, "game-a");
+});
+
+test("stores key-player stats when the pick first settles", () => {
+  const keyPlayers = [
+    { name: "Player One", team: "Home", stats: "PTS 31 · REB 10" },
+  ];
+  const settled = settlePickOfWeekLock(
+    { candidate: firstPick, selectedAt: "2026-10-17T12:00:00.000Z" },
+    {
+      completed: true,
+      home: { score: "108" },
+      away: { score: "101" },
+      keyPlayers,
+    },
+  );
+
+  assert.equal(settled.result.outcome, "win");
+  assert.deepEqual(settled.result.keyPlayers, keyPlayers);
 });

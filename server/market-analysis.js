@@ -48,10 +48,13 @@ export function buildPickOfWeek({
   trends,
   injuryReport,
   week,
+  periodLabel = null,
   news = [],
   candidate = selectPickOfWeekCandidate(analysis),
   selectedAt = null,
   priceUpdated = true,
+  sportLabel = "NFL",
+  features = {},
 }) {
   const trendByTeam = new Map(
     trends.map((team) => [canonicalTeamName(team.name), team]),
@@ -94,10 +97,15 @@ export function buildPickOfWeek({
     injuryReport?.teams ?? {},
     injuryReport?.updatedAt ?? null,
     news,
+    sportLabel,
   );
 
   return {
+    sport: sportLabel.toLowerCase(),
+    sportLabel,
+    features,
     week,
+    ...(periodLabel ? { periodLabel } : {}),
     selectedAt,
     priceUpdated,
     game: {
@@ -123,7 +131,7 @@ export function buildPickOfWeek({
     news: evidence.news,
     injuryReportUpdatedAt: injuryReport?.updatedAt ?? null,
     basis:
-      "Selected once per NFL week from spread and total lines priced by at least two sportsbooks. The highest no-vig market chance ranks first; ties favor broader book coverage, then a stable game and market order. The selection stays fixed for the week. Prices refresh only while the same line remains confirmed by two or more books. Form, injuries, and news are research context, not a validated prediction model or a guarantee.",
+      `Selected once per ${sportLabel} week from spread and total lines priced by at least two sportsbooks. The highest no-vig market chance ranks first; ties favor broader book coverage, then a stable game and market order. The selection stays fixed for the week. Prices refresh only while the same line remains confirmed by two or more books. Form, injuries, and news are research context, not a validated prediction model or a guarantee.`,
   };
 }
 
@@ -156,6 +164,7 @@ function getPickEvidence(
   injuryTeams,
   injuryReportUpdatedAt,
   news = [],
+  sportLabel = "NFL",
 ) {
   const teams = [
     [candidate.awayTeam, "away"],
@@ -205,7 +214,7 @@ function getPickEvidence(
   });
   const newsNarrative = relatedNews.length
     ? ` Recent ESPN coverage: ${relatedNews.map((article) => article.headline).join(" ")}`
-    : " No directly related headline appeared in ESPN's latest NFL feed.";
+    : ` No directly related ${sportLabel} headlines were included in this board.`;
   const injuryNotes = teams.flatMap((team) =>
     team.injuries.map((item) => `${team.team}: ${item}`),
   );
@@ -213,7 +222,7 @@ function getPickEvidence(
     ? ` ESPN's latest injury summary lists ${injuryNotes.join("; ")}.`
     : teams.every((team) => team.injuryReportAvailable)
       ? " ESPN's team injury summaries have no key non-active listings to highlight."
-      : " Current injury-report data is unavailable.";
+      : ` Current ${sportLabel} injury-report data is unavailable.`;
 
   return {
     market: `${candidate.bookCount} sportsbooks compared; best price ${candidate.bestPrice > 0 ? "+" : ""}${candidate.bestPrice} at ${candidate.bestBookmaker}, versus a ${Math.round(candidate.fairProbability * 1000) / 10}% no-vig market consensus.`,
@@ -539,7 +548,7 @@ function createParlays(candidates) {
 
 export function analyzeOdds(
   oddsEvents,
-  { trends = [], injuryReport = null, news = [] } = {},
+  { trends = [], injuryReport = null, news = [], sportLabel = "NFL" } = {},
 ) {
   const smartBets = [];
   const candidates = [];
@@ -581,6 +590,7 @@ export function analyzeOdds(
         injuryTeams,
         injuryReport?.updatedAt ?? null,
         news,
+        sportLabel,
       ),
     });
   }

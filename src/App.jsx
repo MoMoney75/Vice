@@ -23,6 +23,33 @@ const MARKETS = [
   { key: "totals", label: "Total" },
 ];
 
+const SPORT_OPTIONS = [
+  {
+    id: "nfl",
+    label: "NFL",
+    teamCount: 32,
+    features: {
+      playerProps: true,
+      news: true,
+      injuries: true,
+      seasonAts: true,
+      parlays: true,
+    },
+  },
+  {
+    id: "nba",
+    label: "NBA",
+    teamCount: 30,
+    features: {
+      playerProps: false,
+      news: true,
+      injuries: true,
+      seasonAts: true,
+      parlays: false,
+    },
+  },
+];
+
 const PLAYER_PROP_MARKETS = [
   { key: "player_anytime_td", label: "Anytime TD" },
   { key: "player_pass_yds", label: "Passing yards" },
@@ -34,12 +61,12 @@ const PLAYER_PROP_MARKETS = [
 
 const DESK_VIEWS = [
   { key: "overview", label: "Overview", icon: Activity },
-  { key: "props", label: "Player props", icon: Sparkles },
+  { key: "props", label: "Player props", icon: Sparkles, feature: "playerProps" },
   { key: "picks", label: "Game picks", icon: Trophy },
   { key: "games", label: "Game lines", icon: Radio },
   { key: "teams", label: "Team form", icon: Shield },
   { key: "history", label: "History", icon: History },
-  { key: "news", label: "NFL News", icon: Newspaper },
+  { key: "news", label: "League news", icon: Newspaper, feature: "news" },
 ];
 
 const TEAM_GROUPS = [
@@ -76,8 +103,6 @@ const TEAM_GROUPS = [
     teams: ["Arizona Cardinals", "Los Angeles Rams", "San Francisco 49ers", "Seattle Seahawks"],
   },
 ];
-
-const ALL_TEAMS = TEAM_GROUPS.flatMap((group) => group.teams);
 
 function americanOdds(value) {
   if (typeof value !== "number") return "—";
@@ -146,7 +171,7 @@ function atsRecordText(record) {
   return `${record.wins}-${record.losses}${pushes} ATS · ${record.wins + record.losses + record.pushes} games`;
 }
 
-function SmartBetEvidence({ evidence }) {
+function SmartBetEvidence({ evidence, showAts }) {
   return (
     <div className="smart-evidence">
       <strong>RESEARCH SNAPSHOT</strong>
@@ -157,19 +182,23 @@ function SmartBetEvidence({ evidence }) {
             <b>{team.team}:</b> {team.form}; {Number.isFinite(team.offensePointsPerGame)
               ? `${team.offensePointsPerGame.toFixed(1)} scored and ${team.defensePointsAllowedPerGame.toFixed(1)} allowed per game`
               : "season scoring and defense data unavailable"}.
-            {" "}{team.venue === "home" ? "Home" : "Away"} {atsRecordText(team.ats)}.
+            {showAts && <>{" "}{team.venue === "home" ? "Home" : "Away"} {atsRecordText(team.ats)}.</>}
             {team.injuries.length ? ` Injury report: ${team.injuries.join(", ")}.` : ""}
             {team.recentGames.length ? ` Recent: ${team.recentGames.slice(0, 2).join("; ")}.` : ""}
           </li>
         ))}
       </ul>
       <ResearchNews items={evidence.news} />
-      <small>ESPN results/news and closing spreads; descriptive context, not a prediction.</small>
+      <small>
+        {showAts
+          ? "ESPN results/news and closing spreads"
+          : "ESPN results and score trends"}; descriptive context, not a prediction.
+      </small>
     </div>
   );
 }
 
-function SmartBetCard({ game, smartBet }) {
+function SmartBetCard({ game, smartBet, showAts }) {
   const candidate = smartBet?.candidate;
   const hasConsensusEdge = smartBet?.positiveConsensusEdge ??
     (candidate ? candidate.expectedValue > 0 : false);
@@ -193,7 +222,7 @@ function SmartBetCard({ game, smartBet }) {
             Best listed at {candidate.bestBookmaker} · {candidate.bookCount} books compared
           </div>
           {smartBet.evidence && (
-            <SmartBetEvidence evidence={smartBet.evidence} />
+            <SmartBetEvidence evidence={smartBet.evidence} showAts={showAts} />
           )}
           <div className="smart-metrics">
             <div>
@@ -252,13 +281,13 @@ function ResearchNews({ items = [] }) {
   );
 }
 
-function NflNewsSection({ articles = [], updatedAt }) {
+function LeagueNewsSection({ articles = [], updatedAt, sportLabel = "League" }) {
   return (
     <section className="nfl-news-section">
       <div className="section-heading">
         <div>
           <div className="eyebrow section-eyebrow"><span /> LEAGUE-WIDE COVERAGE</div>
-          <h2>NFL news <span className="heading-count">{articles.length}</span></h2>
+          <h2>{sportLabel} news <span className="heading-count">{articles.length}</span></h2>
         </div>
         <span className="trend-caption">
           ESPN feed{updatedAt ? ` · updated ${formatDate(updatedAt)}` : ""}
@@ -293,7 +322,7 @@ function NflNewsSection({ articles = [], updatedAt }) {
         {!articles.length && (
           <div className="empty-state">
             <Newspaper size={22} />
-            <strong>NFL news is temporarily unavailable</strong>
+            <strong>{sportLabel} news is temporarily unavailable</strong>
             <span>The feed will appear here when ESPN responds.</span>
           </div>
         )}
@@ -474,7 +503,7 @@ function ParlayCard({ parlay, index }) {
   );
 }
 
-function TeamPickContext({ team }) {
+function TeamPickContext({ team, showAts, showInjuries }) {
   const form = team.form;
   const injuries = team.injury?.players ?? [];
   return (
@@ -492,9 +521,11 @@ function TeamPickContext({ team }) {
               {form.pointDifferential > 0 ? "+" : ""}{form.pointDifferential} DIFF
             </span>
           </div>
-          <span className="pick-team-ats">
-            {team.venue === "home" ? "HOME" : "AWAY"} ATS · {atsRecordText(team.ats)}
-          </span>
+          {showAts && (
+            <span className="pick-team-ats">
+              {team.venue === "home" ? "HOME" : "AWAY"} ATS · {atsRecordText(team.ats)}
+            </span>
+          )}
           {form.recentGames?.length > 0 && (
             <div className="pick-recent-games">
               <span>LAST GAMES</span>
@@ -509,42 +540,48 @@ function TeamPickContext({ team }) {
       ) : (
         <div className="pick-team-stats"><span>Season results unavailable</span></div>
       )}
-      <div className="pick-injuries">
-        <span className="pick-context-label">INJURY REPORT</span>
-        {injuries.length ? injuries.slice(0, 2).map((injury) => (
-          <div
-            className="pick-injury"
-            key={`${injury.player}-${injury.status}`}
-            title={injury.detail ?? undefined}
-          >
-            <span className="injury-status">{injury.status}</span>
-            <span>{injury.player}{injury.position ? ` · ${injury.position}` : ""}</span>
-          </div>
-        )) : (
-          <span className="pick-no-injury">
-            {team.injury ? "No non-active listings" : "Report unavailable"}
-          </span>
-        )}
-      </div>
+      {showInjuries && (
+        <div className="pick-injuries">
+          <span className="pick-context-label">INJURY REPORT</span>
+          {injuries.length ? injuries.slice(0, 2).map((injury) => (
+            <div
+              className="pick-injury"
+              key={`${injury.player}-${injury.status}`}
+              title={injury.detail ?? undefined}
+            >
+              <span className="injury-status">{injury.status}</span>
+              <span>{injury.player}{injury.position ? ` · ${injury.position}` : ""}</span>
+            </div>
+          )) : (
+            <span className="pick-no-injury">
+              {team.injury ? "No non-active listings" : "Report unavailable"}
+            </span>
+          )}
+        </div>
+      )}
     </div>
   );
 }
 
-function PickOfWeekCard({ pickOfWeek }) {
+function PickOfWeekCard({ pickOfWeek, features = {} }) {
   if (!pickOfWeek) {
     return (
       <div className="pick-week-empty">
-        No spread or total with paired sportsbook prices is available for this week yet.
+        No spread or total with paired sportsbook prices is available for this period yet.
       </div>
     );
   }
 
   const { game, pick } = pickOfWeek;
+  const weekLabel = pickOfWeek.periodLabel ?? `WEEK ${pickOfWeek.week}`;
+  const showAts = Boolean(features.seasonAts);
+  const showInjuries = Boolean(features.injuries);
+  const showNews = Boolean(features.news);
   return (
     <article className="pick-week-card">
       <div className="pick-week-header">
         <div>
-          <div className="eyebrow section-eyebrow"><span /> PICK OF THE WEEK · WEEK {pickOfWeek.week}</div>
+          <div className="eyebrow section-eyebrow"><span /> {pickOfWeek.sportLabel ?? "NFL"} PICK OF THE WEEK · {weekLabel}</div>
           <div className="pick-week-matchup">{game.awayTeam} @ {game.homeTeam}</div>
           <span className="pick-week-date">{formatDate(game.commenceTime)}</span>
         </div>
@@ -554,7 +591,7 @@ function PickOfWeekCard({ pickOfWeek }) {
         </div>
       </div>
       <div className="pick-week-lock-note">
-        <strong>LOCKED THROUGH WEEK {pickOfWeek.week}</strong>
+        <strong>LOCKED THROUGH {weekLabel}</strong>
         <span>
           Selected {pickOfWeek.selectedAt ? formatDate(pickOfWeek.selectedAt) : "this week"}
         </span>
@@ -570,8 +607,8 @@ function PickOfWeekCard({ pickOfWeek }) {
         <b>{americanOdds(pick.bestPrice)}</b>
       </div>
       <div className="pick-week-context">
-        <TeamPickContext team={pickOfWeek.context.away} />
-        <TeamPickContext team={pickOfWeek.context.home} />
+        <TeamPickContext team={pickOfWeek.context.away} showAts={showAts} showInjuries={showInjuries} />
+        <TeamPickContext team={pickOfWeek.context.home} showAts={showAts} showInjuries={showInjuries} />
       </div>
       <div className="pick-week-reasoning">
         <strong>WHY THIS PICK IS FEATURED</strong>
@@ -579,21 +616,21 @@ function PickOfWeekCard({ pickOfWeek }) {
           <li><b>Market:</b> {pick.market} {pick.selection} · {pick.bookCount} books · {percentage(pick.fairProbability)} no-vig consensus chance.</li>
           {[["Away", pickOfWeek.context.away], ["Home", pickOfWeek.context.home]].map(([venue, team]) => (
             <li key={venue}>
-                <b>{team.team}:</b> {team.form?.record ?? "record unavailable"}; {venue.toLowerCase()} {atsRecordText(team.ats)}.
+                <b>{team.team}:</b> {team.form?.record ?? "record unavailable"}{showAts ? `; ${venue.toLowerCase()} ${atsRecordText(team.ats)}` : ""}.
               {team.form && Number.isFinite(team.form.pointsForPerGame)
                 ? ` ${team.form.pointsForPerGame.toFixed(1)} scored and ${team.form.pointsAgainstPerGame.toFixed(1)} allowed per game.`
                 : ""}
             </li>
           ))}
-          <li>Injuries, recent scores, and news are shown as context, not model-weighted predictions.</li>
+          <li>{[showInjuries && "injuries", "recent scores", showNews && "news"].filter(Boolean).join(", ")} are shown as context, not model-weighted predictions.</li>
         </ul>
-        <ResearchNews items={pickOfWeek.news} />
+        {showNews && <ResearchNews items={pickOfWeek.news} />}
       </div>
       <div className="pick-week-footnote">
-        <strong>METHOD</strong> Highest no-vig spread/total chance with two or more books; selection stays locked for the week. Injury feed updated{" "}
-        {pickOfWeek.injuryReportUpdatedAt
+        <strong>METHOD</strong> Highest no-vig spread/total chance with two or more books; selection stays locked for the period.
+        {showInjuries && ` Injury feed updated ${pickOfWeek.injuryReportUpdatedAt
           ? formatDate(pickOfWeek.injuryReportUpdatedAt)
-          : "time unavailable"}.
+          : "time unavailable"}.`}
       </div>
     </article>
   );
@@ -653,37 +690,36 @@ function KeyPlayers({ players = [] }) {
   );
 }
 
-function HistorySection({ pickRecord, smartPickRecord }) {
-  const entries = [
-    ...(pickRecord?.history ?? []).map((pick) => ({ ...pick, type: "Pick of the Week" })),
-    ...(smartPickRecord?.history ?? []).map((pick) => ({ ...pick, type: "Smart Pick" })),
-  ];
+function HistoryRecordGroup({ title, record }) {
+  const history = record?.history ?? [];
   const weeks = new Map();
-  for (const pick of entries) {
-    const key = `${pick.season}-${pick.week}`;
-    const week = weeks.get(key) ?? { season: pick.season, week: pick.week, picks: [] };
-    week.picks.push(pick);
-    weeks.set(key, week);
+  for (const pick of history) {
+    const key = `${pick.season}-${pick.periodLabel ?? `week-${pick.week}`}`;
+    const period = weeks.get(key) ?? {
+      season: pick.season,
+      week: pick.week,
+      periodLabel: pick.periodLabel,
+      picks: [],
+    };
+    period.picks.push(pick);
+    weeks.set(key, period);
   }
   const sortedWeeks = [...weeks.values()].sort(
     (a, b) => b.season - a.season || b.week - a.week,
   );
 
   return (
-    <section className="history-section">
-      <div className="section-heading">
-        <div>
-          <div className="eyebrow section-eyebrow"><span /> SEASON TRACK RECORD</div>
-          <h2>Pick history <span className="heading-count">{entries.length}</span></h2>
-        </div>
-        <span className="trend-caption">Locked picks · final ESPN scores and player stats</span>
+    <article className="history-record-group">
+      <div className="history-group-heading">
+        <h3>{title}</h3>
+        <span>{history.length} {history.length === 1 ? "pick" : "picks"}</span>
       </div>
       <div className="pick-record-stats history-record-stats">
         {[
-          ["WINS", (pickRecord?.wins ?? 0) + (smartPickRecord?.wins ?? 0)],
-          ["LOSSES", (pickRecord?.losses ?? 0) + (smartPickRecord?.losses ?? 0)],
-          ["PUSHES", (pickRecord?.pushes ?? 0) + (smartPickRecord?.pushes ?? 0)],
-          ["PENDING", (pickRecord?.pending ?? 0) + (smartPickRecord?.pending ?? 0)],
+          ["WINS", record?.wins ?? 0],
+          ["LOSSES", record?.losses ?? 0],
+          ["PUSHES", record?.pushes ?? 0],
+          ["PENDING", record?.pending ?? 0],
         ].map(([label, value]) => (
           <div key={label}><strong>{value}</strong><span>{label}</span></div>
         ))}
@@ -692,12 +728,12 @@ function HistorySection({ pickRecord, smartPickRecord }) {
         <div className="history-week-list">
           {sortedWeeks.map((week) => (
             <article className="history-week" key={`${week.season}-${week.week}`}>
-              <h3>{week.season} · WEEK {week.week}</h3>
+              <h3>{week.season} · {week.periodLabel ?? `WEEK ${week.week}`}</h3>
               <div className="history-picks">
                 {week.picks.map((pick) => (
-                  <div className="history-pick" key={`${pick.type}-${pick.game}-${pick.selection}`}>
+                  <div className="history-pick" key={`${pick.game}-${pick.selection}`}>
                     <div className="history-pick-heading">
-                      <span>{pick.type} · {pick.game}</span>
+                      <span>{pick.game}</span>
                       <b className={`pick-record-result result-${pick.result}`}>
                         {pick.result.toUpperCase()}{pick.score ? ` · ${pick.score}` : ""}
                       </b>
@@ -713,10 +749,30 @@ function HistorySection({ pickRecord, smartPickRecord }) {
       ) : (
         <div className="empty-state">
           <History size={22} />
-          <strong>No picks have been recorded yet</strong>
-          <span>Weekly picks and results will appear here as they are selected and games finish.</span>
+          <strong>No {title.toLowerCase()} have been recorded yet</strong>
+          <span>Results will appear here after picks are saved and games are completed.</span>
         </div>
       )}
+    </article>
+  );
+}
+
+function HistorySection({ pickRecord, smartPickRecord }) {
+  const entriesCount =
+    (pickRecord?.history?.length ?? 0) + (smartPickRecord?.history?.length ?? 0);
+  return (
+    <section className="history-section">
+      <div className="section-heading">
+        <div>
+          <div className="eyebrow section-eyebrow"><span /> SEASON TRACK RECORD</div>
+          <h2>Pick history <span className="heading-count">{entriesCount}</span></h2>
+        </div>
+        <span className="trend-caption">Locked picks · final ESPN scores and player stats</span>
+      </div>
+      <div className="history-record-groups">
+        <HistoryRecordGroup title="Pick of the Week" record={pickRecord} />
+        <HistoryRecordGroup title="Smart Picks" record={smartPickRecord} />
+      </div>
     </section>
   );
 }
@@ -731,7 +787,7 @@ function TeamRecord({ record }) {
   );
 }
 
-function GameCard({ game, oddsEvent, marketKey }) {
+function GameCard({ game, oddsEvent, marketKey, showAts }) {
   const offers = oddsEvent ? bestOffers(oddsEvent, marketKey) : [];
   const showLines = marketKey !== "h2h";
 
@@ -766,10 +822,12 @@ function GameCard({ game, oddsEvent, marketKey }) {
           <TeamRecord record={game.home?.record} />
         </div>
       </div>
-      <div className="game-ats-context">
-        <span>HOME ATS <strong>{atsRecordText(game.home?.record?.homeAts)}</strong></span>
-        <span>AWAY ATS <strong>{atsRecordText(game.away?.record?.awayAts)}</strong></span>
-      </div>
+      {showAts && (
+        <div className="game-ats-context">
+          <span>HOME ATS <strong>{atsRecordText(game.home?.record?.homeAts)}</strong></span>
+          <span>AWAY ATS <strong>{atsRecordText(game.away?.record?.awayAts)}</strong></span>
+        </div>
+      )}
       {game.completed ? <KeyPlayers players={game.keyPlayers} /> : <div className="offer-list">
         {offers.length ? (
           offers
@@ -806,6 +864,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState("overview");
+  const [sport, setSport] = useState(SPORT_OPTIONS[0].id);
   const [pickTab, setPickTab] = useState("smart");
   const [marketKey, setMarketKey] = useState("spreads");
   const [playerPropMarket, setPlayerPropMarket] = useState("player_anytime_td");
@@ -817,17 +876,17 @@ export default function App() {
   const loadBoard = useCallback(async () => {
     setError("");
     try {
-      const response = await fetch("/api/nfl/board");
+      const response = await fetch(`/api/${sport}/board`);
       if (!response.ok) throw new Error(`Request failed (${response.status})`);
       const data = await response.json();
       setBoard(data);
       if (data.errors?.length) setError(data.errors.join(" "));
     } catch (requestError) {
-      setError(requestError.message || "Unable to load the NFL board.");
+      setError(requestError.message || `Unable to load the ${sport.toUpperCase()} board.`);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [sport]);
 
   useEffect(() => {
     loadBoard();
@@ -849,7 +908,14 @@ export default function App() {
     () => new Map((board?.trends ?? []).map((team) => [team.name.toLowerCase(), team])),
     [board],
   );
-  const filteredTeams = TEAM_GROUPS.map((group) => ({
+  const sportConfig = SPORT_OPTIONS.find((item) => item.id === sport) ?? SPORT_OPTIONS[0];
+  const teamGroups = sportConfig.id === "nfl"
+    ? TEAM_GROUPS
+    : [{ division: sportConfig.label, teams: (board?.trends ?? []).map((team) => team.name) }];
+  const deskViews = DESK_VIEWS.filter(({ feature }) =>
+    !feature || sportConfig.features[feature],
+  );
+  const filteredTeams = teamGroups.map((group) => ({
     ...group,
     teams: group.teams.filter((team) => team.toLowerCase().includes(search.toLowerCase())),
   })).filter((group) => group.teams.length);
@@ -917,9 +983,27 @@ export default function App() {
     game,
     oddsEvent: matchOdds(game, oddsEvents),
   }));
-  const trackedTeams = board?.trends?.length ?? 0;
+  const trackedTeams = board?.trends?.length ?? sportConfig.teamCount;
   const activeLabel =
-    DESK_VIEWS.find((view) => view.key === activeView)?.label ?? "Overview";
+    deskViews.find((view) => view.key === activeView)?.label ?? "Overview";
+
+  const selectSport = (nextSport) => {
+    setSport(nextSport);
+    setBoard(null);
+    setLoading(true);
+    setSelectedTeam("");
+    if (
+      (!SPORT_OPTIONS.find((option) => option.id === nextSport)?.features.playerProps &&
+        activeView === "props") ||
+      (!SPORT_OPTIONS.find((option) => option.id === nextSport)?.features.news &&
+        activeView === "news")
+    ) {
+      setActiveView("overview");
+    }
+    if (!SPORT_OPTIONS.find((option) => option.id === nextSport)?.features.parlays) {
+      setPickTab("smart");
+    }
+  };
 
   return (
     <main className="app-shell" data-view={activeView}>
@@ -930,7 +1014,7 @@ export default function App() {
         </a>
         <div className="sidebar-label">THE DESK</div>
         <nav className="desk-sidebar-nav" aria-label="Research views">
-          {DESK_VIEWS.map(({ key, label, icon: Icon }) => (
+          {deskViews.map(({ key, label, icon: Icon }) => (
             <button
               className={`nav-item${activeView === key ? " active" : ""}`}
               key={key}
@@ -950,7 +1034,7 @@ export default function App() {
         <label className="team-search">
           <Search size={14} />
           <input
-            aria-label="Search NFL teams"
+            aria-label={`Search ${sportConfig.label} teams`}
             placeholder="Find a team"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
@@ -995,8 +1079,20 @@ export default function App() {
             <span className="brand-mark">V</span>
             <span className="brand-name">VISE<span>.</span></span>
           </a>
-          <div className="breadcrumb">NFL <span>/</span> {activeLabel.toUpperCase()}</div>
+          <div className="breadcrumb">{sportConfig.label} <span>/</span> {activeLabel.toUpperCase()}</div>
           <div className="topbar-right">
+            <div className="sport-switch" role="group" aria-label="Select sport">
+              {SPORT_OPTIONS.map((sportOption) => (
+                <button
+                  className={sport === sportOption.id ? "selected" : ""}
+                  key={sportOption.id}
+                  onClick={() => selectSport(sportOption.id)}
+                  aria-pressed={sport === sportOption.id}
+                >
+                  {sportOption.label}
+                </button>
+              ))}
+            </div>
             <button className="refresh-button" onClick={loadBoard} aria-label="Refresh data">
               <RefreshCw size={15} />
             </button>
@@ -1117,9 +1213,10 @@ export default function App() {
           )}
 
           {activeView === "news" && (
-            <NflNewsSection
+            <LeagueNewsSection
               articles={board?.news ?? []}
               updatedAt={board?.newsUpdatedAt}
+              sportLabel={sportConfig.label}
             />
           )}
 
@@ -1135,11 +1232,14 @@ export default function App() {
             {activeView === "overview" && (
               <>
                 <div className="page-intro">
-                  <span className="eyebrow section-eyebrow"><span /> {board?.season ?? new Date().getFullYear()} NFL SEASON</span>
-                  <h1>Week {board?.week ?? "—"} overview</h1>
-                  <p>Current-week matchups, sportsbook prices, and team context.</p>
+                  <span className="eyebrow section-eyebrow"><span /> {board?.season ?? new Date().getFullYear()} {sportConfig.label} SEASON</span>
+                  <h1>{board?.periodLabel ?? `Week ${board?.week ?? "—"}`} overview</h1>
+                  <p>Current-period matchups, sportsbook prices, and team context.</p>
                 </div>
-                <PickOfWeekCard pickOfWeek={board?.pickOfWeek} />
+                <PickOfWeekCard
+                  pickOfWeek={board?.pickOfWeek}
+                  features={sportConfig.features}
+                />
                 <PickOfWeekRecord record={board?.pickOfWeekRecord} />
               </>
             )}
@@ -1153,14 +1253,16 @@ export default function App() {
                 >
                   Smart game picks
                 </button>
-                <button
-                  className={pickTab === "parlays" ? "selected" : ""}
-                  onClick={() => setPickTab("parlays")}
-                  role="tab"
-                  aria-selected={pickTab === "parlays"}
-                >
-                  Parlay ideas
-                </button>
+                {sportConfig.features.parlays && (
+                  <button
+                    className={pickTab === "parlays" ? "selected" : ""}
+                    onClick={() => setPickTab("parlays")}
+                    role="tab"
+                    aria-selected={pickTab === "parlays"}
+                  >
+                    Parlay ideas
+                  </button>
+                )}
               </div>
             )}
             {activeView === "picks" && pickTab === "smart" && (
@@ -1185,6 +1287,7 @@ export default function App() {
                 <SmartBetCard
                   game={game}
                   key={game.id}
+                  showAts={sportConfig.features.seasonAts}
                   smartBet={savedSmartPicks.get(game.id) ?? matchSmartBet(game, smartBets)}
                 />
               ))}
@@ -1199,7 +1302,7 @@ export default function App() {
               </>
             )}
 
-            {activeView === "picks" && pickTab === "parlays" && (
+            {activeView === "picks" && sportConfig.features.parlays && pickTab === "parlays" && (
               <>
             <div className="parlay-heading">
               <div>
@@ -1269,7 +1372,7 @@ export default function App() {
             <div className="section-heading">
               <div>
                 <div className="eyebrow section-eyebrow"><span /> THE BOARD</div>
-                <h2>{selectedTeam || `Week ${board?.week ?? "—"} matchups`}<span className="heading-count">{filteredGames.length}</span></h2>
+                <h2>{selectedTeam || `${board?.periodLabel ?? `Week ${board?.week ?? "—"}`} matchups`}<span className="heading-count">{filteredGames.length}</span></h2>
               </div>
               {selectedTeam && (
                 <button
@@ -1296,13 +1399,18 @@ export default function App() {
             </div>
             <div className="analysis-disclaimer bookmaker-scope-note">
               <CircleHelp size={14} />
-              <span>Comparisons use Hard Rock Bet, DraftKings, FanDuel, and Caesars where available. ATS records use completed games with a verified ESPN closing spread.</span>
+              <span>
+                Comparisons use Hard Rock Bet, DraftKings, FanDuel, and Caesars where available.
+                {sportConfig.features.seasonAts && " ATS records use completed games with a verified ESPN closing spread."}
+              </span>
             </div>
             <label className="mobile-team-filter">
               <span>FILTER TEAM</span>
               <select value={selectedTeam} onChange={(event) => setSelectedTeam(event.target.value)}>
-                <option value="">All NFL teams</option>
-                {ALL_TEAMS.map((team) => <option key={team} value={team}>{team}</option>)}
+                <option value="">All {sportConfig.label} teams</option>
+                {teamGroups.flatMap((group) => group.teams).map((team) => (
+                  <option key={team} value={team}>{team}</option>
+                ))}
               </select>
             </label>
             {!board?.oddsConfigured && (
@@ -1310,7 +1418,11 @@ export default function App() {
                 <div className="connection-icon"><Radio size={17} /></div>
                 <div>
                   <strong>Bring the live market into view</strong>
-                  <p>Connect an Odds API key to compare US sportsbook lines. Game odds refresh every 15 minutes and player props every six hours; check your plan's credit allowance.</p>
+                  <p>
+                    Connect an Odds API key to compare US sportsbook lines. Game odds refresh every 15 minutes.
+                    {sportConfig.features.playerProps && " NFL player props refresh every six hours."}
+                    {" "}Check your plan's shared credit allowance.
+                  </p>
                 </div>
                 <button className="setup-link" onClick={() => setSetupOpen(!setupOpen)}>
                   {setupOpen ? "Hide setup" : "Setup guide"} <ArrowUpRight size={14} />
@@ -1325,11 +1437,14 @@ export default function App() {
                   <li>Copy <code>.env.example</code> to <code>.env</code> in the project folder.</li>
                   <li>Set <code>ODDS_API_KEY=your_key</code> and restart <code>npm run dev</code>.</li>
                 </ol>
-                <span>Game odds refresh every 15 minutes and player props every six hours. Your key stays on the backend and is never sent to the browser.</span>
+                <span>
+                  Game odds refresh every 15 minutes{sportConfig.features.playerProps ? " and NFL player props every six hours" : ""}.
+                  {" "}Your key stays on the backend and is never sent to the browser.
+                </span>
               </div>
             )}
             <div className="games-grid">
-              {loading && <div className="loading-state">Loading live NFL schedule…</div>}
+              {loading && <div className="loading-state">Loading live {sportConfig.label} schedule…</div>}
               {!loading && gamesWithOdds.map(({ game, oddsEvent }) => (
                 <GameCard
                   key={game.id}
@@ -1346,6 +1461,7 @@ export default function App() {
                   }}
                   oddsEvent={oddsEvent}
                   marketKey={marketKey}
+                  showAts={sportConfig.features.seasonAts}
                 />
               ))}
               {!loading && gamesWithOdds.length === 0 && (
@@ -1374,7 +1490,7 @@ export default function App() {
             <div className="section-heading compact-heading">
               <div>
                 <div className="eyebrow section-eyebrow"><span /> SEASON SO FAR</div>
-                <h2>Team form <span className="heading-count">32</span></h2>
+                <h2>Team form <span className="heading-count">{trackedTeams}</span></h2>
               </div>
               <span className="trend-caption">W–L record · point differential · last 5 results</span>
             </div>
@@ -1414,7 +1530,7 @@ export default function App() {
       </section>
 
       <nav className="mobile-nav" aria-label="Main navigation">
-        {DESK_VIEWS.map(({ key, label, icon: Icon }) => (
+        {deskViews.map(({ key, label, icon: Icon }) => (
           <button
             className={activeView === key ? "active" : ""}
             key={key}
