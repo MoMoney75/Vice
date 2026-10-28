@@ -570,7 +570,7 @@ app.get("/api/nfl/board", async (_request, response) => {
   });
   if (smartPickKey && smartPicksChanged) {
     cache.set(smartPickKey, {
-      value: { picks: smartPicks, periodLabel: period.label },
+      value: { picks: smartPicks, periodLabel: `Week ${week}` },
       savedAt: Date.now(),
     });
     void persistCache();
