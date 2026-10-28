@@ -80,14 +80,9 @@ export function settleSmartPick(pick, game, settledAt = new Date().toISOString()
     else if (awaySelected) margin = awayScore + candidate.line - homeScore;
     else return pick;
   } else if (candidate.marketKey === "h2h") {
-    if (
-      candidate.outcomeName === candidate.homeTeam ||
-      candidate.selection === candidate.homeTeam
-    ) margin = homeScore - awayScore;
-    else if (
-      candidate.outcomeName === candidate.awayTeam ||
-      candidate.selection === candidate.awayTeam
-    ) margin = awayScore - homeScore;
+    const team = selectedTeam(candidate);
+    if (team === candidate.homeTeam) margin = homeScore - awayScore;
+    else if (team === candidate.awayTeam) margin = awayScore - homeScore;
     else return pick;
   } else if (candidate.marketKey === "totals") {
     if (!Number.isFinite(candidate.line)) return pick;

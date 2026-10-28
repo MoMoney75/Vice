@@ -178,7 +178,7 @@ test("grades moneyline and total selections, including a total push", () => {
     ...candidate,
     marketKey: "h2h",
     market: "Moneyline",
-    selection: "Away",
+    selection: "Away to win",
     line: null,
   };
   const over = {
@@ -194,6 +194,16 @@ test("grades moneyline and total selections, including a total push", () => {
     home: { score: 20 },
     away: { score: 24 },
   }).result.outcome, "win");
+  assert.equal(settleSmartPick({
+    candidate: {
+      ...moneyline,
+      selection: "Home to win",
+    },
+  }, {
+    completed: true,
+    home: { score: 20 },
+    away: { score: 24 },
+  }).result.outcome, "loss");
   assert.equal(settleSmartPick({ candidate: over }, {
     completed: true,
     home: { score: 24 },
