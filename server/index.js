@@ -33,6 +33,7 @@ import {
   alignSmartPicksWithPickOfWeek,
   resolveSmartPicks,
   settleSmartPick,
+  settleSmartPickHistory,
   summarizeSmartPickRecord,
 } from "./smart-pick-lock.js";
 import {
@@ -502,6 +503,11 @@ app.get("/api/nfl/board", async (_request, response) => {
         { ...game, keyPlayers: keyPlayersByGame.get(game.id) ?? [] },
       ]),
   );
+  const settledSmartPicksChanged = settleSmartPickHistory(
+    cache,
+    "smart-picks-",
+    completedGames.values(),
+  );
   for (const [key, entry] of cache) {
     if (!key.startsWith("pick-of-week-") || !entry.value?.candidate) continue;
     const settled = settlePickOfWeekLock(
@@ -513,7 +519,7 @@ app.get("/api/nfl/board", async (_request, response) => {
       settledPickChanged = true;
     }
   }
-  if (settledPickChanged) void persistCache();
+  if (settledPickChanged || settledSmartPicksChanged) void persistCache();
 
   const trends = makeSportTeamTrends(games).map((team) => ({
     ...team,
@@ -1004,6 +1010,11 @@ app.get("/api/:sport/board", async (request, response) => {
     awayAts: atsRecords.get(team.id)?.away ?? null,
   }));
 
+  const settledSmartPicksChanged = settleSmartPickHistory(
+    cache,
+    `smart-picks-${sport.id}-`,
+    completedGames.values(),
+  );
   let settledPickChanged = false;
   for (const [key, entry] of cache) {
     if (!key.startsWith(`pick-of-week-${sport.id}-`) || !entry.value?.candidate) continue;
@@ -1016,7 +1027,7 @@ app.get("/api/:sport/board", async (request, response) => {
       settledPickChanged = true;
     }
   }
-  if (settledPickChanged) void persistCache();
+  if (settledPickChanged || settledSmartPicksChanged) void persistCache();
 
   const upcoming = games
     .filter((game) => !game.completed && new Date(game.date).getTime() >= Date.now())

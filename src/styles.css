@@ -235,28 +235,14 @@ button { color: inherit; }
 .prop-evidence-list { gap: 5px; }
 .pick-week-footnote { margin-top: 10px; color: #7c877d; font-size: 8px; line-height: 1.5; }
 .pick-week-empty { margin-bottom: 22px; padding: 14px; border: 1px dashed #354033; border-radius: 4px; color: #9aa59b; font-size: 9px; }
-.pick-record-card { margin: -10px 0 22px; padding: 14px 16px; border: 1px solid #303a30; border-radius: 5px; background: #121813; }
-.pick-record-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-.pick-record-heading h3 { margin: 5px 0 0; color: #dce5dc; font: 600 13px "Space Grotesk", sans-serif; }
-.pick-record-pending { color: #9ca994; font: 8px var(--mono); }
 .pick-record-stats { display: flex; gap: 10px; margin-top: 12px; }
 .pick-record-stats > div { display: flex; align-items: baseline; gap: 6px; min-width: 66px; padding: 7px 9px; border: 1px solid #29332a; border-radius: 3px; background: #0f1511; }
 .pick-record-stats strong { color: #e0e9df; font: 600 15px "Space Grotesk", sans-serif; }
 .pick-record-stats span { color: #859184; font: 7px var(--mono); }
-.pick-record-history { margin-top: 11px; border-top: 1px solid #283129; color: #b8c2b7; font-size: 8px; }
-.pick-record-history summary { display: flex; justify-content: space-between; gap: 10px; padding: 9px 0 2px; cursor: pointer; }
-.pick-record-history summary span, .pick-record-caveat { color: #7e897e; font-size: 7px; }
-.pick-record-history ul { display: grid; gap: 6px; margin: 8px 0 0; padding: 0; list-style: none; }
-.pick-record-history li { display: grid; grid-template-columns: auto minmax(0,1fr) auto; align-items: center; gap: 10px; padding: 7px 8px; border: 1px solid #273027; border-radius: 3px; background: #101612; }
-.pick-record-week { color: #879383; font: 7px var(--mono); }
-.pick-record-selection { overflow: hidden; color: #d0d9d0; text-overflow: ellipsis; white-space: nowrap; }
 .pick-record-result { color: #9cc66d; font: 7px var(--mono); }
 .pick-record-result.result-loss { color: #cf887b; }
 .pick-record-result.result-push, .pick-record-result.result-pending { color: #d7b86f; }
-.pick-record-history > p { margin: 8px 0; color: #929d91; line-height: 1.5; }
-.pick-record-caveat { margin: 10px 0 0; line-height: 1.5; }
 .history-section { margin-top: 28px; }
-.history-record-groups { display: grid; gap: 14px; }
 .history-record-group { min-width: 0; padding: 14px; border: 1px solid #29342b; border-radius: 4px; background: #111713; }
 .history-group-heading { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .history-group-heading h3 { margin: 0; color: #dce5dc; font: 600 13px "Space Grotesk", sans-serif; }
@@ -581,7 +567,7 @@ button { color: inherit; }
 .eyebrow, .section-eyebrow, .trend-caption, .control-label,
 .game-date, .game-status, .source-note, .smart-matchup, .smart-date,
 .smart-market, .smart-book, .parlay-card-head, .prop-game-time,
-.nfl-news-meta, .pick-record-pending {
+.nfl-news-meta {
   font-size: 12px;
 }
 .pick-week-card { padding: 22px; }
@@ -597,15 +583,13 @@ button { color: inherit; }
 .pick-context-team h3 { font-size: 17px; }
 .pick-context-label, .pick-team-stats { font-size: 12px; }
 .pick-week-reasoning, .pick-evidence-list, .pick-week-footnote,
-.pick-week-empty, .pick-record-history, .pick-record-caveat {
+.pick-week-empty {
   font-size: 14px;
   line-height: 1.55;
 }
-.pick-week-footnote, .pick-record-history summary span, .pick-record-caveat { font-size: 12px; }
-.pick-record-card { padding: 18px; }
-.pick-record-heading h3 { font-size: 18px; }
+.pick-week-footnote { font-size: 12px; }
 .pick-record-stats strong { font-size: 20px; }
-.pick-record-stats span, .pick-record-week, .pick-record-result { font-size: 12px; }
+.pick-record-stats span, .pick-record-result { font-size: 12px; }
 .notice, .analysis-disclaimer, .connection-banner p, .setup-panel,
 .nfl-news-card p, .empty-state span, .empty-state button {
   font-size: 14px;
@@ -683,14 +667,10 @@ button { color: inherit; }
   .pick-team-stats { font-size: 12px; }
   .pick-week-reasoning, .pick-evidence-list { font-size: 14px; }
   .pick-week-footnote { font-size: 12px; }
-  .pick-record-card { margin: 0 0 18px; padding: 15px; }
   .history-week { padding: 11px; }
   .history-pick-heading { align-items: flex-start; flex-direction: column; gap: 5px; }
   .history-selection { font-size: 9px; }
   .result-player-stats { font-size: 7px; }
-  .pick-record-heading { align-items: flex-start; flex-direction: column; }
-  .pick-record-heading h3 { font-size: 17px; }
-  .pick-record-pending { font-size: 12px; }
   .pick-record-stats { flex-wrap: wrap; gap: 8px; }
   .pick-record-stats > div { min-width: 75px; padding: 9px 10px; }
   .pick-record-stats strong { font-size: 19px; }

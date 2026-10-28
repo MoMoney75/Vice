@@ -636,46 +636,6 @@ function PickOfWeekCard({ pickOfWeek, features = {} }) {
   );
 }
 
-function PickOfWeekRecord({ record }) {
-  const history = record?.history ?? [];
-  return (
-    <section className="pick-record-card" aria-label="Pick of the Week record">
-      <div className="pick-record-heading">
-        <div>
-          <div className="eyebrow section-eyebrow"><span /> TRACK RECORD</div>
-          <h3>Pick of the Week results</h3>
-        </div>
-        <span className="pick-record-pending">{record?.pending ?? 0} pending</span>
-      </div>
-      <div className="pick-record-stats" aria-label="Wins-losses-pushes">
-        <div><strong>{record?.wins ?? 0}</strong><span>WINS</span></div>
-        <div><strong>{record?.losses ?? 0}</strong><span>LOSSES</span></div>
-        <div><strong>{record?.pushes ?? 0}</strong><span>PUSHES</span></div>
-      </div>
-      <details className="pick-record-history">
-        <summary>Weekly pick history <span>{history.length} {history.length === 1 ? "pick" : "picks"}</span></summary>
-        {history.length ? (
-          <ul>
-            {history.map((pick) => (
-              <li key={`${pick.season}-${pick.week}`}>
-                <span className="pick-record-week">{pick.season} · WEEK {pick.week}</span>
-                <span className="pick-record-selection">{pick.selection}</span>
-                <span className={`pick-record-result result-${pick.result}`}>
-                  {pick.result === "pending" ? "PENDING" : pick.result.toUpperCase()}
-                  {pick.score ? ` · ${pick.score}` : ""}
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p>Completed weekly picks will appear here after the game is final.</p>
-        )}
-      </details>
-      <p className="pick-record-caveat">Graded against final ESPN scores using the locked spread or total line.</p>
-    </section>
-  );
-}
-
 function KeyPlayers({ players = [] }) {
   if (!players.length) return null;
   return (
@@ -757,9 +717,16 @@ function HistoryRecordGroup({ title, record }) {
   );
 }
 
-function HistorySection({ pickRecord, smartPickRecord }) {
+function HistorySection({
+  pickRecord,
+  smartPickRecord,
+  selectedTab,
+  onSelectTab,
+}) {
   const entriesCount =
     (pickRecord?.history?.length ?? 0) + (smartPickRecord?.history?.length ?? 0);
+  const isPickOfWeek = selectedTab === "pick-of-week";
+  const selectedRecord = isPickOfWeek ? pickRecord : smartPickRecord;
   return (
     <section className="history-section">
       <div className="section-heading">
@@ -769,9 +736,37 @@ function HistorySection({ pickRecord, smartPickRecord }) {
         </div>
         <span className="trend-caption">Locked picks · final ESPN scores and player stats</span>
       </div>
-      <div className="history-record-groups">
-        <HistoryRecordGroup title="Pick of the Week" record={pickRecord} />
-        <HistoryRecordGroup title="Smart Picks" record={smartPickRecord} />
+      <div className="research-tabs" role="tablist" aria-label="Pick history">
+        <button
+          className={isPickOfWeek ? "selected" : ""}
+          id="pick-of-week-history-tab"
+          role="tab"
+          aria-selected={isPickOfWeek}
+          aria-controls="pick-history-panel"
+          onClick={() => onSelectTab("pick-of-week")}
+        >
+          Pick of the Week ({pickRecord?.history?.length ?? 0})
+        </button>
+        <button
+          className={!isPickOfWeek ? "selected" : ""}
+          id="smart-picks-history-tab"
+          role="tab"
+          aria-selected={!isPickOfWeek}
+          aria-controls="pick-history-panel"
+          onClick={() => onSelectTab("smart-picks")}
+        >
+          Smart Picks ({smartPickRecord?.history?.length ?? 0})
+        </button>
+      </div>
+      <div
+        id="pick-history-panel"
+        role="tabpanel"
+        aria-labelledby={isPickOfWeek ? "pick-of-week-history-tab" : "smart-picks-history-tab"}
+      >
+        <HistoryRecordGroup
+          title={isPickOfWeek ? "Pick of the Week" : "Smart Picks"}
+          record={selectedRecord}
+        />
       </div>
     </section>
   );
@@ -864,6 +859,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [activeView, setActiveView] = useState("overview");
+  const [historyTab, setHistoryTab] = useState("pick-of-week");
   const [sport, setSport] = useState(SPORT_OPTIONS[0].id);
   const [pickTab, setPickTab] = useState("smart");
   const [marketKey, setMarketKey] = useState("spreads");
@@ -1224,6 +1220,8 @@ export default function App() {
             <HistorySection
               pickRecord={board?.pickOfWeekRecord}
               smartPickRecord={board?.smartPickRecord}
+              selectedTab={historyTab}
+              onSelectTab={setHistoryTab}
             />
           )}
 
@@ -1240,7 +1238,6 @@ export default function App() {
                   pickOfWeek={board?.pickOfWeek}
                   features={sportConfig.features}
                 />
-                <PickOfWeekRecord record={board?.pickOfWeekRecord} />
               </>
             )}
             {activeView === "picks" && (

@@ -4,6 +4,7 @@ import {
   alignSmartPicksWithPickOfWeek,
   resolveSmartPicks,
   settleSmartPick,
+  settleSmartPickHistory,
   summarizeSmartPickRecord,
 } from "./smart-pick-lock.js";
 
@@ -115,6 +116,61 @@ test("settles smart picks and retains final key-player stats in history", () => 
     score: "20-24",
     keyPlayers: [{ name: "Home QB", team: "Home", stats: "22/31 · 248 YDS" }],
   });
+});
+
+test("settles cached smart picks from completed prior weeks", () => {
+  const pickCache = new Map([
+    ["smart-picks-2026-7", {
+      value: { picks: [{ candidate, selectedAt: "2026-10-19T12:00:00Z" }] },
+      savedAt: 1,
+    }],
+    ["smart-picks-2026-8", {
+      value: {
+        picks: [{
+          candidate: {
+            ...candidate,
+            eventId: "future-game",
+            homeTeam: "Next Home",
+            awayTeam: "Next Away",
+          },
+        }],
+      },
+      savedAt: 2,
+    }],
+  ]);
+  const completedGames = [{
+    id: candidate.eventId,
+    name: candidate.eventName,
+    completed: true,
+    home: { name: candidate.homeTeam, score: "24" },
+    away: { name: candidate.awayTeam, score: "20" },
+  }];
+
+  assert.equal(
+    settleSmartPickHistory(
+      pickCache,
+      "smart-picks-",
+      completedGames,
+      "2026-10-27T12:00:00Z",
+    ),
+    true,
+  );
+  assert.equal(
+    pickCache.get("smart-picks-2026-7").value.picks[0].result.outcome,
+    "win",
+  );
+  assert.equal(
+    pickCache.get("smart-picks-2026-7").value.picks[0].result.settledAt,
+    "2026-10-27T12:00:00Z",
+  );
+  assert.equal(
+    pickCache.get("smart-picks-2026-8").value.picks[0].result,
+    undefined,
+  );
+  assert.equal(
+    settleSmartPickHistory(pickCache, "smart-picks-", completedGames),
+    false,
+  );
 });
 
 test("grades moneyline and total selections, including a total push", () => {

@@ -1,3 +1,5 @@
+import { findGameForPick } from "./pick-game-match.js";
+
 export function resolveSmartPicks(analysis, savedPicks = [], selectedAt = new Date().toISOString()) {
   const picks = new Map(
     savedPicks
@@ -110,6 +112,36 @@ export function settleSmartPick(pick, game, settledAt = new Date().toISOString()
       settledAt,
     },
   };
+}
+
+export function settleSmartPickHistory(
+  cache,
+  keyPrefix,
+  games,
+  settledAt = new Date().toISOString(),
+) {
+  const completedGames = [...games];
+  let changed = false;
+
+  for (const [key, entry] of cache) {
+    if (!key.startsWith(keyPrefix) || !Array.isArray(entry.value?.picks)) continue;
+    const picks = entry.value.picks.map((pick) =>
+      settleSmartPick(
+        pick,
+        findGameForPick(pick.candidate, completedGames),
+        settledAt,
+      ),
+    );
+    if (!picks.some((pick, index) => pick !== entry.value.picks[index])) continue;
+
+    cache.set(key, {
+      ...entry,
+      value: { ...entry.value, picks },
+    });
+    changed = true;
+  }
+
+  return changed;
 }
 
 export function summarizeSmartPickRecord(weeks) {
