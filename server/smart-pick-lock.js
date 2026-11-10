@@ -13,6 +13,8 @@ export function resolveSmartPicks(analysis, savedPicks = [], selectedAt = new Da
     picks.set(candidate.eventId, {
       candidate,
       selectedAt,
+      lockedPrice: candidate.bestPrice,
+      lockedBookmaker: candidate.bestBookmaker,
     });
   }
 
@@ -52,7 +54,12 @@ export function alignSmartPicksWithPickOfWeek(picks, pickOfWeekCandidate) {
       smartTeam === featuredTeam
     ) return pick;
 
-    return { ...pick, candidate: pickOfWeekCandidate };
+    return {
+      ...pick,
+      candidate: pickOfWeekCandidate,
+      lockedPrice: pickOfWeekCandidate.bestPrice,
+      lockedBookmaker: pickOfWeekCandidate.bestBookmaker,
+    };
   });
 }
 
@@ -120,13 +127,26 @@ export function settleSmartPickHistory(
 
   for (const [key, entry] of cache) {
     if (!key.startsWith(keyPrefix) || !Array.isArray(entry.value?.picks)) continue;
-    const picks = entry.value.picks.map((pick) =>
-      settleSmartPick(
+    const picks = entry.value.picks.map((pick) => {
+      const settled = settleSmartPick(
         pick,
         findGameForPick(pick.candidate, completedGames),
         settledAt,
-      ),
-    );
+      );
+      const lockedPrice = settled.lockedPrice ?? settled.candidate?.bestPrice ?? null;
+      const lockedBookmaker =
+        settled.lockedBookmaker ?? settled.candidate?.bestBookmaker ?? null;
+      if (
+        settled.lockedPrice === lockedPrice &&
+        settled.lockedBookmaker === lockedBookmaker
+      ) return settled;
+
+      return {
+        ...settled,
+        lockedPrice,
+        lockedBookmaker,
+      };
+    });
     if (!picks.some((pick, index) => pick !== entry.value.picks[index])) continue;
 
     cache.set(key, {
@@ -149,6 +169,8 @@ export function summarizeSmartPickRecord(weeks) {
         game: pick.candidate.eventName,
         selection: pick.candidate.selection,
         market: pick.candidate.market,
+        price: pick.lockedPrice ?? pick.candidate.bestPrice ?? null,
+        bookmaker: pick.lockedBookmaker ?? pick.candidate.bestBookmaker ?? null,
         result: pick.result?.outcome ?? "pending",
         score: pick.result
           ? `${pick.result.awayScore}-${pick.result.homeScore}`

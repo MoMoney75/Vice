@@ -12,10 +12,10 @@ export function resolvePickOfWeekLock(analysis, savedLock, selectedAt = new Date
   if (savedLock?.candidate) {
     if (savedLock.result) {
       return {
+        ...savedLock,
         candidate: savedLock.candidate,
         selectedAt: savedLock.selectedAt,
         priceUpdated: false,
-        result: savedLock.result,
       };
     }
     const currentCandidate = (analysis.pickCandidates ?? []).find(
@@ -24,15 +24,24 @@ export function resolvePickOfWeekLock(analysis, savedLock, selectedAt = new Date
         sameSelection(candidate, savedLock.candidate),
     );
     return {
+      ...savedLock,
       candidate: currentCandidate ?? savedLock.candidate,
       selectedAt: savedLock.selectedAt,
+      lockedPrice: savedLock.lockedPrice ?? savedLock.candidate.bestPrice,
+      lockedBookmaker: savedLock.lockedBookmaker ?? savedLock.candidate.bestBookmaker,
       priceUpdated: Boolean(currentCandidate),
     };
   }
 
   const candidate = selectPickOfWeekCandidate(analysis);
   return candidate
-    ? { candidate, selectedAt, priceUpdated: true }
+    ? {
+        candidate,
+        selectedAt,
+        lockedPrice: candidate.bestPrice,
+        lockedBookmaker: candidate.bestBookmaker,
+        priceUpdated: true,
+      }
     : null;
 }
 
@@ -107,6 +116,8 @@ export function summarizePickOfWeekRecord(locks) {
       game: lock.candidate.eventName,
       selection: lock.candidate.selection,
       market: lock.candidate.market,
+      price: lock.lockedPrice ?? lock.candidate.bestPrice ?? null,
+      bookmaker: lock.lockedBookmaker ?? lock.candidate.bestBookmaker ?? null,
       result: lock.result?.outcome ?? "pending",
       score: lock.result
         ? `${lock.result.awayScore}-${lock.result.homeScore}`

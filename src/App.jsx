@@ -3,6 +3,8 @@ import {
   Activity,
   ArrowUpRight,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CircleHelp,
   Clock3,
   ExternalLink,
@@ -651,6 +653,7 @@ function KeyPlayers({ players = [] }) {
 }
 
 function HistoryRecordGroup({ title, record }) {
+  const [weekIndex, setWeekIndex] = useState(0);
   const history = record?.history ?? [];
   const weeks = new Map();
   for (const pick of history) {
@@ -667,6 +670,8 @@ function HistoryRecordGroup({ title, record }) {
   const sortedWeeks = [...weeks.values()].sort(
     (a, b) => b.season - a.season || b.week - a.week,
   );
+  const activeWeekIndex = Math.min(weekIndex, sortedWeeks.length - 1);
+  const selectedWeek = sortedWeeks[activeWeekIndex];
 
   return (
     <article className="history-record-group">
@@ -686,25 +691,51 @@ function HistoryRecordGroup({ title, record }) {
       </div>
       {sortedWeeks.length ? (
         <div className="history-week-list">
-          {sortedWeeks.map((week) => (
-            <article className="history-week" key={`${week.season}-${week.week}`}>
-              <h3>{week.season} · {week.periodLabel ?? `WEEK ${week.week}`}</h3>
-              <div className="history-picks">
-                {week.picks.map((pick) => (
-                  <div className="history-pick" key={`${pick.game}-${pick.selection}`}>
-                    <div className="history-pick-heading">
-                      <span>{pick.game}</span>
+          <article className="history-week" key={`${selectedWeek.season}-${selectedWeek.week}`}>
+            <div className="history-week-navigation">
+              <button
+                type="button"
+                aria-label="Browse to older week"
+                disabled={activeWeekIndex >= sortedWeeks.length - 1}
+                onClick={() => setWeekIndex(activeWeekIndex + 1)}
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <h3 aria-live="polite">
+                {selectedWeek.season} · {selectedWeek.periodLabel ?? `WEEK ${selectedWeek.week}`}
+                <span>{activeWeekIndex + 1} of {sortedWeeks.length}</span>
+              </h3>
+              <button
+                type="button"
+                aria-label="Browse to newer week"
+                disabled={activeWeekIndex === 0}
+                onClick={() => setWeekIndex(activeWeekIndex - 1)}
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+            <div className="history-picks">
+              {selectedWeek.picks.map((pick) => (
+                <div className="history-pick" key={`${pick.game}-${pick.selection}`}>
+                  <div className="history-pick-heading">
+                    <span>{pick.game}</span>
+                    <div className="history-result-details">
+                      {typeof pick.price === "number" && (
+                        <span className="history-locked-price">
+                          {americanOdds(pick.price)}{pick.bookmaker ? ` · ${pick.bookmaker}` : ""}
+                        </span>
+                      )}
                       <b className={`pick-record-result result-${pick.result}`}>
                         {pick.result.toUpperCase()}{pick.score ? ` · ${pick.score}` : ""}
                       </b>
                     </div>
-                    <strong className="history-selection">{pick.selection} · {pick.market}</strong>
-                    <KeyPlayers players={pick.keyPlayers} />
                   </div>
-                ))}
-              </div>
-            </article>
-          ))}
+                  <strong className="history-selection">{pick.selection} · {pick.market}</strong>
+                  <KeyPlayers players={pick.keyPlayers} />
+                </div>
+              ))}
+            </div>
+          </article>
         </div>
       ) : (
         <div className="empty-state">
@@ -764,6 +795,7 @@ function HistorySection({
         aria-labelledby={isPickOfWeek ? "pick-of-week-history-tab" : "smart-picks-history-tab"}
       >
         <HistoryRecordGroup
+          key={isPickOfWeek ? "pick-of-week-history" : "smart-picks-history"}
           title={isPickOfWeek ? "Pick of the Week" : "Smart Picks"}
           record={selectedRecord}
         />

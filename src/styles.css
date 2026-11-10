@@ -250,10 +250,16 @@ button { color: inherit; }
 .history-record-stats { margin: 0 0 14px; }
 .history-week-list { display: grid; gap: 10px; }
 .history-week { padding: 14px; border: 1px solid #29342b; border-radius: 4px; background: #111713; }
-.history-week > h3 { margin: 0 0 10px; color: #bdc9b9; font: 9px var(--mono); }
+.history-week-navigation { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; align-items: center; gap: 8px; margin-bottom: 10px; }
+.history-week-navigation button { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid #344033; border-radius: 4px; background: #151d16; color: #c0d0b4; cursor: pointer; }
+.history-week-navigation button:disabled { opacity: .35; cursor: default; }
+.history-week-navigation h3 { display: grid; gap: 4px; margin: 0; color: #bdc9b9; font: 9px var(--mono); text-align: center; }
+.history-week-navigation h3 span { color: #7e897e; font-size: 7px; }
 .history-picks { display: grid; gap: 7px; }
 .history-pick { padding: 10px; border: 1px solid #263027; border-radius: 3px; background: #0f1511; }
 .history-pick-heading { display: flex; justify-content: space-between; gap: 10px; color: #8e9b8d; font: 8px var(--mono); }
+.history-result-details { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 7px; }
+.history-locked-price { color: #a9bd96; font: 7px var(--mono); }
 .history-selection { display: block; margin-top: 7px; color: #d0d9d0; font-size: 10px; }
 .result-player-stats { display: grid; gap: 5px; margin-top: 9px; padding-top: 8px; border-top: 1px solid #263027; color: #879287; font-size: 8px; line-height: 1.4; }
 .result-player-stats > strong { color: #a9bd96; font: 7px var(--mono); letter-spacing: .06em; }

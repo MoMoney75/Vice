@@ -514,8 +514,15 @@ app.get("/api/nfl/board", async (_request, response) => {
       entry.value,
       findGameForPick(entry.value.candidate, completedGames.values()),
     );
-    if (settled !== entry.value) {
-      cache.set(key, { ...entry, value: settled });
+    const lockedPrice = settled.lockedPrice ?? settled.candidate.bestPrice ?? null;
+    const lockedBookmaker =
+      settled.lockedBookmaker ?? settled.candidate.bestBookmaker ?? null;
+    const locked = settled.lockedPrice === lockedPrice &&
+      settled.lockedBookmaker === lockedBookmaker
+      ? settled
+      : { ...settled, lockedPrice, lockedBookmaker };
+    if (locked !== entry.value) {
+      cache.set(key, { ...entry, value: locked });
       settledPickChanged = true;
     }
   }
@@ -549,6 +556,8 @@ app.get("/api/nfl/board", async (_request, response) => {
       value: {
         candidate: pickLock.candidate,
         selectedAt: pickLock.selectedAt,
+        lockedPrice: pickLock.lockedPrice,
+        lockedBookmaker: pickLock.lockedBookmaker,
       },
       savedAt: Date.now(),
     });
@@ -1022,8 +1031,15 @@ app.get("/api/:sport/board", async (request, response) => {
       entry.value,
       findGameForPick(entry.value.candidate, completedGames.values()),
     );
-    if (settled !== entry.value) {
-      cache.set(key, { ...entry, value: settled });
+    const lockedPrice = settled.lockedPrice ?? settled.candidate.bestPrice ?? null;
+    const lockedBookmaker =
+      settled.lockedBookmaker ?? settled.candidate.bestBookmaker ?? null;
+    const locked = settled.lockedPrice === lockedPrice &&
+      settled.lockedBookmaker === lockedBookmaker
+      ? settled
+      : { ...settled, lockedPrice, lockedBookmaker };
+    if (locked !== entry.value) {
+      cache.set(key, { ...entry, value: locked });
       settledPickChanged = true;
     }
   }
@@ -1050,6 +1066,8 @@ app.get("/api/:sport/board", async (request, response) => {
       value: {
         candidate: pickLock.candidate,
         selectedAt: pickLock.selectedAt,
+        lockedPrice: pickLock.lockedPrice,
+        lockedBookmaker: pickLock.lockedBookmaker,
         periodLabel: period.label,
       },
       savedAt: Date.now(),

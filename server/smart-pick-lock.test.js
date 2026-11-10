@@ -17,6 +17,8 @@ const candidate = {
   marketKey: "spreads",
   selection: "Home -3",
   line: -3,
+  bestPrice: -110,
+  bestBookmaker: "Book A",
 };
 
 test("saves a smart pick once and retains it across refreshed candidates", () => {
@@ -32,6 +34,7 @@ test("saves a smart pick once and retains it across refreshed candidates", () =>
   assert.equal(refreshed.length, 1);
   assert.equal(refreshed[0].candidate.selection, "Home -3");
   assert.equal(refreshed[0].selectedAt, "2026-10-19T12:00:00Z");
+  assert.equal(refreshed[0].lockedPrice, candidate.bestPrice);
 });
 
 test("aligns an opposing same-game smart pick with Pick of the Week", () => {
@@ -60,6 +63,7 @@ test("aligns an opposing same-game smart pick with Pick of the Week", () => {
   assert.equal(aligned.candidate.selection, "Home -4.5");
   assert.equal(aligned.candidate.marketKey, "spreads");
   assert.equal(aligned.selectedAt, smartPick.selectedAt);
+  assert.equal(aligned.lockedPrice, featuredPick.bestPrice);
 });
 
 test("keeps compatible picks and does not alter settled smart-pick history", () => {
@@ -112,6 +116,8 @@ test("settles smart picks and retains final key-player stats in history", () => 
     game: "Away at Home",
     selection: "Home -3",
     market: "Spread",
+    price: -110,
+    bookmaker: "Book A",
     result: "win",
     score: "20-24",
     keyPlayers: [{ name: "Home QB", team: "Home", stats: "22/31 · 248 YDS" }],

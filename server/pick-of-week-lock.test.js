@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   resolvePickOfWeekLock,
   settlePickOfWeekLock,
+  summarizePickOfWeekRecord,
 } from "./pick-of-week-lock.js";
 
 const firstPick = {
@@ -37,6 +38,8 @@ test("locks the strongest two-book spread or total for the week", () => {
 
   assert.equal(resolved.candidate.eventId, "game-2");
   assert.equal(resolved.selectedAt, "2026-10-17T12:00:00.000Z");
+  assert.equal(resolved.lockedPrice, firstPick.bestPrice);
+  assert.equal(resolved.lockedBookmaker, firstPick.bestBookmaker);
   assert.equal(resolved.priceUpdated, true);
 });
 
@@ -83,6 +86,8 @@ test("retains the saved selection and last confirmed price when two-book odds di
 
   assert.equal(resolved.candidate.eventId, "game-1");
   assert.equal(resolved.candidate.bestPrice, firstPick.bestPrice);
+  assert.equal(resolved.lockedPrice, firstPick.bestPrice);
+  assert.equal(resolved.lockedBookmaker, firstPick.bestBookmaker);
   assert.equal(resolved.priceUpdated, false);
 });
 
@@ -115,4 +120,39 @@ test("stores key-player stats when the pick first settles", () => {
 
   assert.equal(settled.result.outcome, "win");
   assert.deepEqual(settled.result.keyPlayers, keyPlayers);
+});
+
+test("records the locked price and sportsbook in pick history", () => {
+  const record = summarizePickOfWeekRecord([{
+    season: 2026,
+    week: 7,
+    lock: {
+      candidate: firstPick,
+      lockedPrice: -105,
+      lockedBookmaker: "Book A",
+    },
+  }]);
+
+  assert.equal(record.history[0].price, -105);
+  assert.equal(record.history[0].bookmaker, "Book A");
+});
+
+test("keeps the original odds while refreshing current Pick of the Week prices", () => {
+  const savedLock = {
+    candidate: firstPick,
+    selectedAt: "2026-10-17T12:00:00Z",
+    lockedPrice: -105,
+    lockedBookmaker: "Book A",
+  };
+  const refreshed = resolvePickOfWeekLock({
+    pickCandidates: [{
+      ...firstPick,
+      bestPrice: 120,
+      bestBookmaker: "Book B",
+    }],
+  }, savedLock);
+
+  assert.equal(refreshed.candidate.bestPrice, 120);
+  assert.equal(refreshed.lockedPrice, -105);
+  assert.equal(refreshed.lockedBookmaker, "Book A");
 });
